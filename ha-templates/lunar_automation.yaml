@@ -1,0 +1,37 @@
+# 农历传感器 + 节日倒计时自动化
+# 使用方法：将此文件内容添加到 HA 的 automations.yaml
+
+automation:
+  # 每天午夜更新农历
+  - alias: "🌙 每日更新农历"
+    description: "每天 00:00 自动更新农历日期和节日倒计时"
+    trigger:
+      - platform: time
+        hours: 0
+        minutes: 0
+        seconds: 0
+    action:
+      - service: python_script.lunar_sensor
+      - service: notify.persistent_notification
+        data:
+          title: "农历更新"
+          message: "今天是 {{ states('sensor.lunar_date') }} | 下一个节日：{{ state_attr('sensor.lunar_date', 'next_traditional') }} ({{ state_attr('sensor.lunar_date', 'next_traditional_days') }}天)"
+
+  # 节日倒计时提醒 (提前 7 天)
+  - alias: "🏮 传统节日提醒"
+    description: "传统节日前 7 天发送提醒"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.lunar_date
+        attribute: next_traditional_days
+        below: 8
+        above: 0
+    action:
+      - service: notify.persistent_notification
+        data:
+          title: "🏮 节日提醒"
+          message: "距离{{ state_attr('sensor.lunar_date', 'next_traditional') }}还有{{ state_attr('sensor.lunar_date', 'next_traditional_days') }}天！"
+
+# Shell 命令 (可选 - 用于手动刷新)
+shell_command:
+  update_lunar: "python3 /config/python_scripts/lunar_sensor.py"
