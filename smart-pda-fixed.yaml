@@ -1,0 +1,1209 @@
+# ESPHome Smart PDA - 修复优化版
+# 修复内容:
+# 1. 添加生肖和干支年传感器支持
+# 2. 优化更新频率 (1s → 5s)
+# 3. 添加空值检查
+# 4. 优化字体 glyphs 定义
+# 5. 添加内存保护
+
+esphome:
+  name: smart-pda
+  platformio_options:
+    board_build.flash_mode: dio
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+wifi:
+  ssid: "XiaoMi"
+  password: "15816141921"
+  fast_connect: false
+  enable_btm: true
+  enable_rrm: true
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+
+logger:
+
+web_server:
+  port: 80
+
+debug:
+
+globals:
+  - id: always_on_mode
+    type: bool
+    initial_value: 'false'
+
+# =================================================================
+# 硬件驱动
+# =================================================================
+output:
+  - platform: ledc
+    pin: 1
+    id: gpio_backlight_pwm
+    frequency: 1000Hz
+
+light:
+  - platform: monochromatic
+    output: gpio_backlight_pwm
+    name: Display Backlight
+    id: display_backlight
+    restore_mode: ALWAYS_ON
+
+i2c:
+  - id: bus_a
+    sda: GPIO8
+    scl: GPIO4
+    scan: true
+
+touchscreen:
+  - platform: gt911
+    id: my_touchscreen
+    i2c_id: bus_a
+    interrupt_pin:
+      number: 3
+      ignore_strapping_warning: true
+    reset_pin: GPIO38
+    on_touch:
+      then:
+        - script.execute: inactivity_timer
+
+spi:
+  id: quad_spi
+  type: quad
+  clk_pin: GPIO47
+  data_pins: [21, 48, 40, 39]
+
+display:
+  - platform: qspi_dbi
+    id: my_display
+    update_interval: never
+    auto_clear_enabled: False
+    model: CUSTOM
+    data_rate: 40MHz
+    dimensions:
+      width: 480
+      height: 272
+    cs_pin:
+      number: 45
+      ignore_strapping_warning: true
+    invert_colors: true
+    rotation: 180
+    init_sequence:
+      - [0xff, 0xa5]
+      - [0x36, 0xc0]
+      - [0x3A, 0x01]
+      - [0x41, 0x03]
+      - [0x44, 0x15]
+      - [0x45, 0x15]
+      - [0x7d, 0x03]
+      - [0xc1, 0xbb]
+      - [0xc2, 0x05]
+      - [0xc3, 0x10]
+      - [0xc6, 0x3e]
+      - [0xc7, 0x25]
+      - [0xc8, 0x11]
+      - [0x7a, 0x5f]
+      - [0x6f, 0x44]
+      - [0x78, 0x70]
+      - [0xc9, 0x00]
+      - [0x67, 0x21]
+      - [0x51, 0x0a]
+      - [0x52, 0x76]
+      - [0x53, 0x0a]
+      - [0x54, 0x76]
+      - [0x46, 0x0a]
+      - [0x47, 0x2a]
+      - [0x48, 0x0a]
+      - [0x49, 0x1a]
+      - [0x56, 0x43]
+      - [0x57, 0x42]
+      - [0x58, 0x3c]
+      - [0x59, 0x64]
+      - [0x5a, 0x41]
+      - [0x5b, 0x3c]
+      - [0x5c, 0x02]
+      - [0x5d, 0x3c]
+      - [0x5e, 0x1f]
+      - [0x60, 0x80]
+      - [0x61, 0x3f]
+      - [0x62, 0x21]
+      - [0x63, 0x07]
+      - [0x64, 0xe0]
+      - [0x65, 0x02]
+      - [0xca, 0x20]
+      - [0xcb, 0x52]
+      - [0xcc, 0x10]
+      - [0xcd, 0x42]
+      - [0xd0, 0x20]
+      - [0xd1, 0x52]
+      - [0xd2, 0x10]
+      - [0xd3, 0x42]
+      - [0xd4, 0x0a]
+      - [0xd5, 0x32]
+      - [0x80, 0x00]
+      - [0xa0, 0x00]
+      - [0x81, 0x07]
+      - [0xa1, 0x06]
+      - [0x82, 0x02]
+      - [0xa2, 0x01]
+      - [0x86, 0x11]
+      - [0xa6, 0x10]
+      - [0x87, 0x27]
+      - [0xa7, 0x27]
+      - [0x83, 0x37]
+      - [0xa3, 0x37]
+      - [0x84, 0x35]
+      - [0xa4, 0x35]
+      - [0x85, 0x3f]
+      - [0xa5, 0x3f]
+      - [0x88, 0x0b]
+      - [0xa8, 0x0b]
+      - [0x89, 0x14]
+      - [0xa9, 0x14]
+      - [0x8a, 0x1a]
+      - [0xaa, 0x1a]
+      - [0x8b, 0x0a]
+      - [0xab, 0x0a]
+      - [0x8c, 0x14]
+      - [0xac, 0x08]
+      - [0x8d, 0x17]
+      - [0xad, 0x07]
+      - [0x8e, 0x16]
+      - [0xae, 0x06]
+      - [0x8f, 0x1b]
+      - [0xaf, 0x07]
+      - [0x90, 0x04]
+      - [0xb0, 0x04]
+      - [0x91, 0x0a]
+      - [0xb1, 0x0a]
+      - [0x92, 0x16]
+      - [0xb2, 0x15]
+      - [0xff, 0x00]
+      - [0x11, 0x00]
+      - [0x29, 0x00]
+
+script:
+  - id: inactivity_timer
+    mode: restart
+    then:
+      - if:
+          condition:
+            light.is_off: display_backlight
+          then:
+            - light.turn_on: display_backlight
+      - delay: !lambda 'return id(sleep_time).state * 1000;'
+      - if:
+          condition:
+            lambda: 'return !id(always_on_mode);'
+          then:
+            - light.turn_off: display_backlight
+
+number:
+  - platform: template
+    name: "Sleep time"
+    id: sleep_time
+    optimistic: true
+    initial_value: 15
+    restore_value: yes
+    unit_of_measurement: "s"
+    min_value: 5
+    max_value: 600
+    step: 1
+
+button:
+  - platform: restart
+    id: sys_restart
+    name: "System Restart"
+
+# =================================================================
+# 传感器
+# =================================================================
+binary_sensor:
+  - platform: status
+    name: "HA Connected"
+    id: ha_connected
+    on_state:
+      then:
+        - lambda: |-
+            if (id(ha_icon) != nullptr) {
+              lv_obj_set_style_text_color(id(ha_icon), x ? lv_color_hex(0x00E676) : lv_color_hex(0xFF5252), 0);
+            }
+  - platform: homeassistant
+    id: vm_100_ikuai
+    entity_id: binary_sensor.ikuai_status
+  - platform: homeassistant
+    id: vm_101_openwrt
+    entity_id: binary_sensor.openwrt_status
+  - platform: homeassistant
+    id: vm_102_ad
+    entity_id: binary_sensor.ad_status
+  - platform: homeassistant
+    id: vm_103_jike
+    entity_id: binary_sensor.jike_status
+  - platform: homeassistant
+    id: vm_104_ubuntu
+    entity_id: binary_sensor.ubuntu_server_status
+  - platform: homeassistant
+    id: vm_105_synology
+    entity_id: binary_sensor.synology_status
+  - platform: homeassistant
+    id: vm_106_ha
+    entity_id: binary_sensor.ha_status
+  - platform: homeassistant
+    id: vm_107_win11
+    entity_id: binary_sensor.win11_status
+  - platform: homeassistant
+    id: vm_108_hack
+    entity_id: binary_sensor.hack_big_sur_status
+  - platform: homeassistant
+    id: vm_109_ct109
+    entity_id: binary_sensor.ct109_status
+  - platform: homeassistant
+    id: vm_110_openclaw
+    entity_id: binary_sensor.openclaw_status
+  - platform: homeassistant
+    id: vm_200_grafana
+    entity_id: binary_sensor.monitor_grafana_status
+
+sensor:
+  - platform: uptime
+    name: "System Uptime"
+    id: sys_uptime
+    on_value:
+      then:
+        - lambda: |-
+            if (id(sys_uptime_lbl) != nullptr) {
+              int days = x / 86400;
+              int hours = ((int)x % 86400) / 3600;
+              int mins = ((int)x % 3600) / 60;
+              lv_label_set_text(id(sys_uptime_lbl), str_sprintf("已运行：%d天 %d时 %d分", days, hours, mins).c_str());
+            }
+
+  - platform: debug
+    free: 
+      name: "Free Heap Memory"
+      id: sys_free_heap
+      on_value:
+        then:
+          - lambda: |-
+              if (id(sys_ram_lbl) != nullptr && id(sys_free_heap).has_state()) {
+                float mem_kb = id(sys_free_heap).state / 1024.0;
+                if (mem_kb > 0) {
+                  lv_label_set_text(id(sys_ram_lbl), str_sprintf("可用内存：%.1f KB", mem_kb).c_str());
+                } else {
+                  lv_label_set_text(id(sys_ram_lbl), "可用内存：-- KB");
+                }
+              }
+
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    id: wifi_sig
+    on_value:
+      then:
+        - lambda: |-
+            if (id(wifi_icon) != nullptr) {
+              if (x > -55) lv_label_set_text(id(wifi_icon), "\U000F05A9");
+              else if (x > -70) lv_label_set_text(id(wifi_icon), "\U000F05A8");
+              else if (x > -85) lv_label_set_text(id(wifi_icon), "\U000F05A7");
+              else lv_label_set_text(id(wifi_icon), "\U000F05A6");
+            }
+            if (id(sys_wifi_lbl) != nullptr) {
+              lv_label_set_text(id(sys_wifi_lbl), str_sprintf("信号：%.0f dBm", x).c_str());
+            }
+
+  # 天气
+  - platform: homeassistant
+    id: ha_temp
+    entity_id: sensor.openweathermap_temperature
+    on_value:
+      then:
+        - lambda: 'if (id(temp_label) != nullptr) lv_label_set_text(id(temp_label), str_sprintf("%.1f°C", x).c_str());'
+  - platform: homeassistant
+    id: ha_humidity
+    entity_id: sensor.openweathermap_humidity
+    on_value:
+      then:
+        - lambda: 'if (id(hum_label) != nullptr) lv_label_set_text(id(hum_label), str_sprintf("%.0f%%", x).c_str());'
+  - platform: homeassistant
+    id: ha_wind
+    entity_id: sensor.openweathermap_wind_speed
+    on_value:
+      then:
+        - lambda: 'if (id(wind_label) != nullptr) lv_label_set_text(id(wind_label), str_sprintf("%.1f m/s", x).c_str());'
+  - platform: homeassistant
+    id: ha_feels_like
+    entity_id: sensor.openweathermap_apparent_temperature 
+    on_value:
+      then:
+        - lambda: 'if (id(feels_label) != nullptr) lv_label_set_text(id(feels_label), str_sprintf("体感 %.1f°C", x).c_str());'
+
+  # 农历 - 修复：添加生肖和干支年
+  - platform: homeassistant
+    id: ha_lunar_day_num
+    entity_id: sensor.nong_li_ri_qi_2
+
+  - platform: homeassistant
+    id: ha_sheng_xiao
+    entity_id: sensor.sheng_xiao
+    on_value:
+      then:
+        - lambda: |-
+            if (id(zodiac_label) != nullptr && id(ha_sheng_xiao).has_state() && !id(ha_sheng_xiao).state.empty()) {
+              lv_label_set_text(id(zodiac_label), ("🐴 " + id(ha_sheng_xiao).state).c_str());
+            }
+
+  - platform: homeassistant
+    id: ha_gan_zhi_nian
+    entity_id: sensor.gan_zhi_nian
+    on_value:
+      then:
+        - lambda: |-
+            if (id(festival_label) != nullptr && id(ha_gan_zhi_nian).has_state() && !id(ha_gan_zhi_nian).state.empty()) {
+              lv_label_set_text(id(festival_label), id(ha_gan_zhi_nian).state.c_str());
+            }
+
+  # PVE
+  - platform: homeassistant
+    id: ha_pve_max_cpu
+    entity_id: sensor.pve_max_cpu
+  - platform: homeassistant
+    id: ha_pve_cpu
+    entity_id: sensor.pve_cpu_usage
+    on_value:
+      then:
+        - lambda: |-
+            if (id(pve_cpu_arc) != nullptr && id(ha_pve_max_cpu).has_state()) {
+              float max = id(ha_pve_max_cpu).state;
+              if (max > 0) {
+                int pct = (int)((x / max) * 100.0);
+                lv_arc_set_value(id(pve_cpu_arc), pct);
+                lv_label_set_text(id(pve_cpu_val), str_sprintf("%d%%", pct).c_str());
+              }
+            }
+  - platform: homeassistant
+    id: ha_pve_max_ram
+    entity_id: sensor.pve_max_memory_usage
+  - platform: homeassistant
+    id: ha_pve_ram
+    entity_id: sensor.pve_memory_usage
+    on_value:
+      then:
+        - lambda: |-
+            if (id(pve_ram_arc) != nullptr && id(ha_pve_max_ram).has_state()) {
+              float max = id(ha_pve_max_ram).state;
+              if (max > 0) {
+                int pct = (int)((x / max) * 100.0);
+                lv_arc_set_value(id(pve_ram_arc), pct);
+                lv_label_set_text(id(pve_ram_val), str_sprintf("%d%%", pct).c_str());
+              }
+            }
+  - platform: homeassistant
+    id: ha_pve_max_disk
+    entity_id: sensor.pve_max_disk_usage
+  - platform: homeassistant
+    id: ha_pve_disk
+    entity_id: sensor.pve_disk_usage
+    on_value:
+      then:
+        - lambda: |-
+            if (id(pve_disk_arc) != nullptr && id(ha_pve_max_disk).has_state()) {
+              float max = id(ha_pve_max_disk).state;
+              if (max > 0) {
+                int pct = (int)((x / max) * 100.0);
+                lv_arc_set_value(id(pve_disk_arc), pct);
+                lv_label_set_text(id(pve_disk_val), str_sprintf("%d%%", pct).c_str());
+              }
+            }
+
+  # 路由器
+  - platform: homeassistant
+    id: clash_up
+    entity_id: sensor.clash_shi_li_upload_speed
+    on_value:
+      then:
+        - lambda: 'if (id(clash_up_lbl) != nullptr) lv_label_set_text(id(clash_up_lbl), str_sprintf("上传：%.1f MB/s", x).c_str());'
+  - platform: homeassistant
+    id: clash_down
+    entity_id: sensor.clash_shi_li_download_speed
+    on_value:
+      then:
+        - lambda: 'if (id(clash_down_lbl) != nullptr) lv_label_set_text(id(clash_down_lbl), str_sprintf("下载：%.1f MB/s", x).c_str());'
+  - platform: homeassistant
+    id: clash_conn
+    entity_id: sensor.clash_shi_li_connection_number
+    on_value:
+      then:
+        - lambda: 'if (id(clash_conn_lbl) != nullptr) lv_label_set_text(id(clash_conn_lbl), str_sprintf("连接数：%.0f", x).c_str());'
+  - platform: homeassistant
+    id: ikuai_up
+    entity_id: sensor.ikuai_upload
+    on_value:
+      then:
+        - lambda: 'if (id(ikuai_up_lbl) != nullptr) lv_label_set_text(id(ikuai_up_lbl), str_sprintf("上传：%.1f MB/s", x).c_str());'
+  - platform: homeassistant
+    id: ikuai_down
+    entity_id: sensor.ikuai_download
+    on_value:
+      then:
+        - lambda: 'if (id(ikuai_down_lbl) != nullptr) lv_label_set_text(id(ikuai_down_lbl), str_sprintf("下载：%.1f MB/s", x).c_str());'
+  - platform: homeassistant
+    id: ikuai_online
+    entity_id: sensor.ikuai_online_user
+    on_value:
+      then:
+        - lambda: 'if (id(ikuai_online_lbl) != nullptr) lv_label_set_text(id(ikuai_online_lbl), str_sprintf("在线：%.0f 设备", x).c_str());'
+  - platform: homeassistant
+    id: adguard_blocked
+    entity_id: sensor.adguard_home_dns_queries_blocked
+    on_value:
+      then:
+        - lambda: 'if (id(adguard_blocked_lbl) != nullptr) lv_label_set_text(id(adguard_blocked_lbl), str_sprintf("已拦截：%.0f", x).c_str());'
+  - platform: homeassistant
+    id: adguard_ratio
+    entity_id: sensor.adguard_home_dns_queries_blocked_ratio
+    on_value:
+      then:
+        - lambda: 'if (id(adguard_ratio_lbl) != nullptr) lv_label_set_text(id(adguard_ratio_lbl), str_sprintf("拦截率：%.2f%%", x).c_str());'
+  - platform: homeassistant
+    id: adguard_speed
+    entity_id: sensor.adguard_home_average_processing_speed
+    on_value:
+      then:
+        - lambda: 'if (id(adguard_speed_lbl) != nullptr) lv_label_set_text(id(adguard_speed_lbl), str_sprintf("耗时：%.2f ms", x).c_str());'
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      id: device_ip
+      on_value:
+        then:
+          - lambda: |-
+              if (id(ip_label) != nullptr) lv_label_set_text(id(ip_label), x.c_str());
+              if (id(sys_ip_lbl) != nullptr) lv_label_set_text(id(sys_ip_lbl), ("IP: " + x).c_str());
+    mac_address:
+      id: device_mac
+      on_value:
+        then:
+          - lambda: 'if (id(sys_mac_lbl) != nullptr) lv_label_set_text(id(sys_mac_lbl), ("MAC: " + x).c_str());'
+
+  - platform: homeassistant
+    id: ha_weather_condition
+    entity_id: sensor.openweathermap_weather
+    on_value:
+      then:
+        - lambda: |-
+            if (id(weather_icon) != nullptr && id(weather_cond) != nullptr) {
+              std::string state = x;
+              std::string icon = "\U000F0590";
+              std::string cond = state; 
+              if (state == "sunny" || state == "clear-night" || state == "晴") { icon = "\U000F0599"; cond = "晴"; }
+              else if (state == "cloudy" || state == "阴") { icon = "\U000F0590"; cond = "阴"; }
+              else if (state == "partlycloudy" || state == "多云") { icon = "\U000F0594"; cond = "多云"; }
+              else if (state == "rainy" || state == "雨") { icon = "\U000F0596"; cond = "雨"; }
+              else if (state == "snowy" || state == "雪") { icon = "\U000F0597"; cond = "雪"; }
+              else if (state == "windy" || state == "风") { icon = "\U000F0598"; cond = "大风"; }
+              lv_label_set_text(id(weather_icon), icon.c_str());
+              lv_label_set_text(id(weather_cond), cond.c_str());
+            }
+
+  - platform: homeassistant
+    id: ha_lunar_date_state
+    entity_id: sensor.nong_li_ri_qi 
+
+  - platform: homeassistant
+    id: ha_pve_status_text
+    entity_id: sensor.pve_status
+
+# =================================================================
+# 字体
+# =================================================================
+font:
+  - file: "fonts/misans.ttf"
+    id: font_time
+    size: 72
+    bpp: 4
+    glyphs: [" ", "0123456789:-"]
+  
+  - file: "fonts/misans.ttf"
+    id: font_temp
+    size: 38
+    bpp: 4
+    glyphs: [" ", "-0123456789.°C"]
+  
+  - file: "fonts/misans.ttf"
+    id: font_date
+    size: 20
+    bpp: 2
+    glyphs:
+      - " "
+      - "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.%°/-:●()!·"
+      - "体感温度状态应用菜单返回主页路由器中心智能家居存储系统设置内磁盘在线备"
+      - "上传下载旁连接数去广告已拦截率耗时屏幕亮息间秒重启距离还有今就是"
+      - "月日星期一二三四五六七八九十天晴多云阴阵雨雪雷暴风未知春节元宵旦清明"
+      - "端午秋阳除夕腊小年国庆劳动建军党妇女青儿童教师父母亲寒衣植树龙抬头"
+      - "立水惊蛰分谷满芒种夏至暑大处白露霜降冬服务键常模式运行可网络信号强关开"
+  
+  - file: "fonts/misans.ttf"
+    id: font_small
+    size: 16
+    bpp: 2
+    glyphs:
+      - " "
+      - "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.%°/-:●()!·"
+      - "体感温度状态应用菜单返回主页路由器中心智能家居存储系统设置内磁盘在线备"
+      - "上传下载旁连接数去广告已拦截率耗时屏幕亮息间秒重启距离还有今就是"
+      - "月日星期一二三四五六七八九十天晴多云阴阵雨雪雷暴风未知春节元宵旦清明"
+      - "端午秋阳除夕腊小年国庆劳动建军党妇女青儿童教师父母亲寒衣植树龙抬头"
+      - "立水惊蛰分谷满芒种夏至暑大处白露霜降冬服务键常模式运行可网络信号强关开"
+  
+  - file: "fonts/misans.ttf"
+    id: font_lunar
+    size: 18
+    bpp: 2
+    glyphs: [" ", "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-农历初十廿卅一二三四五六七八九正月冬腊闰年甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥鼠牛虎兔龙蛇马羊猴鸡狗猪生肖：·"]
+  
+  - file: "fonts/misans.ttf"
+    id: font_pve_val
+    size: 24
+    bpp: 4
+    glyphs: [" ", "0123456789%na"]
+  
+  - file: "fonts/materialdesignicons-webfont.ttf"
+    id: font_mdi_status
+    size: 22
+    bpp: 4
+    glyphs: ["\U000F05A9", "\U000F05A8", "\U000F05A7", "\U000F05A6", "\U000F05AA", "\U000F00AF", "\U000F02DC", "\U000F0599", "\U000F050F", "\U000F0450"]
+  
+  - file: "fonts/materialdesignicons-webfont.ttf"
+    id: font_mdi_weather
+    size: 46 
+    bpp: 4
+    glyphs: ["\U000F0599", "\U000F0590", "\U000F0594", "\U000F0595", "\U000F0596", "\U000F0597", "\U000F0598"]
+  
+  - file: "fonts/materialdesignicons-webfont.ttf"
+    id: font_mdi_small
+    size: 18
+    bpp: 2
+    glyphs: ["\U000F050F", "\U000F058E", "\U000F059B", "\U000F004D"]
+  
+  - file: "fonts/materialdesignicons-webfont.ttf"
+    id: font_mdi_apps
+    size: 40
+    bpp: 4
+    glyphs: ["\U000F048B", "\U000F0496", "\U000F02DC", "\U000F01B4", "\U000F02FC", "\U000F0120"] 
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "CST-8"
+    servers: ["ntp.aliyun.com", "ntp.tencent.com"]
+
+# =================================================================
+# 动态更新 - 优化：降低更新频率到 5 秒
+# =================================================================
+interval:
+  - interval: 5s
+    then:
+      - lambda: |-
+          // 1. 息屏与常亮管理逻辑
+          uint32_t inactive_time = lv_disp_get_inactive_time(lv_disp_get_default());
+          uint32_t timeout = id(sleep_time).state * 1000;
+          if (!id(always_on_mode) && inactive_time > timeout) {
+            if (id(display_backlight).current_values.is_on()) id(display_backlight).turn_off().perform();
+          } else {
+            if (!id(display_backlight).current_values.is_on()) id(display_backlight).turn_on().perform();
+          }
+          // 2. 主页面时间/日期字符串刷新
+          auto time = id(sntp_time).now();
+          if (time.is_valid() && id(time_label) != nullptr) {
+            char t_str[16];
+            sprintf(t_str, "%02d:%02d", time.hour, time.minute);
+            lv_label_set_text(id(time_label), t_str);
+            char date_str[64];
+            const char* wdays[] = {"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"};
+            sprintf(date_str, "%02d月%02d日 %s", time.month, time.day_of_month, wdays[time.day_of_week - 1]);
+            lv_label_set_text(id(date_label), date_str);
+          }
+          // 3. 农历文本拼接显示 - 修复：添加空值检查
+          if (id(lunar_label) != nullptr) {
+            std::string lunar_str = "农历 --";
+            if (id(ha_lunar_date_state).has_state() && !id(ha_lunar_date_state).state.empty()) {
+              lunar_str = "农历 " + id(ha_lunar_date_state).state;
+            }
+            lv_label_set_text(id(lunar_label), lunar_str.c_str());
+          }
+          // 4. 虚拟机指示灯组动态变色逻辑
+          if (id(icon_100) != nullptr) {
+            auto update_vm = [](esphome::binary_sensor::BinarySensor *sensor, lv_obj_t *icon_lbl, lv_obj_t *name_lbl) {
+              if (sensor->has_state()) {
+                bool running = sensor->state;
+                lv_obj_set_style_text_color(icon_lbl, running ? lv_color_hex(0x00E676) : lv_color_hex(0x424242), 0);
+                lv_obj_set_style_text_color(name_lbl, running ? lv_color_hex(0xFFFFFF) : lv_color_hex(0x757575), 0);
+              }
+            };
+            update_vm(id(vm_100_ikuai), id(icon_100), id(name_100));
+            update_vm(id(vm_101_openwrt), id(icon_101), id(name_101));
+            update_vm(id(vm_102_ad), id(icon_102), id(name_102));
+            update_vm(id(vm_103_jike), id(icon_103), id(name_103));
+            update_vm(id(vm_104_ubuntu), id(icon_104), id(name_104));
+            update_vm(id(vm_105_synology), id(icon_105), id(name_105));
+            update_vm(id(vm_106_ha), id(icon_106), id(name_106));
+            update_vm(id(vm_107_win11), id(icon_107), id(name_107));
+            update_vm(id(vm_108_hack), id(icon_108), id(name_108));
+            update_vm(id(vm_109_ct109), id(icon_109), id(name_109));
+            update_vm(id(vm_110_openclaw), id(icon_110), id(name_110));
+            update_vm(id(vm_200_grafana), id(icon_200), id(name_200));
+          }
+
+# =================================================================
+# LVGL UI
+# =================================================================
+lvgl:
+  displays: 
+    - my_display 
+  color_depth: 16
+  buffer_size: 100% 
+  bg_color: 0x000000
+  widgets:
+    # ------------------ 【首页】 ------------------
+    - obj:
+        id: page_main
+        width: 100%
+        height: 100%
+        bg_color: 0x000000
+        border_width: 0
+        scrollbar_mode: "OFF"
+        scrollable: false
+        pad_all: 0
+        widgets:
+          - label: { id: ip_label, text: "0.0.0.0", text_font: font_small, align: TOP_LEFT, x: 15, y: 10, text_color: 0x00E5FF }
+          - label: { id: ha_icon, text: "\U000F02DC", text_font: font_mdi_status, align: TOP_RIGHT, x: -100, y: 8, text_color: 0x424242 }
+          - label: { id: bt_icon, text: "\U000F00AF", text_font: font_mdi_status, align: TOP_RIGHT, x: -60, y: 8, text_color: 0x757575 }
+          - label: { id: wifi_icon, text: "\U000F05AA", text_font: font_mdi_status, align: TOP_RIGHT, x: -20, y: 8, text_color: 0xFFFFFF }
+          - obj: { width: 440, height: 1, align: TOP_MID, y: 35, bg_color: 0x2C2C2C, border_width: 0 }
+          
+          - label: { id: time_label, text: "--:--", text_font: font_time, align: TOP_LEFT, x: 30, y: 45, text_color: 0xFFFFFF }
+          - label: { id: date_label, text: "--月--日 星期-", text_font: font_date, align: TOP_LEFT, x: 35, y: 120, text_color: 0x00E5FF }
+          - label: { id: lunar_label, text: "农历 --", text_font: font_lunar, align: TOP_LEFT, x: 35, y: 145, text_color: 0xFFCA28 }
+          - label: { id: zodiac_label, text: "生肖：-", text_font: font_lunar, align: TOP_LEFT, x: 35, y: 170, text_color: 0xFFCA28 }
+          - label: { id: festival_label, text: "距离还有天", text_font: font_small, align: TOP_LEFT, x: 35, y: 195, text_color: 0xFF6E40 }
+          
+          - label: { id: weather_icon, text: "\U000F0590", text_font: font_mdi_weather, align: TOP_LEFT, x: 270, y: 55, text_color: 0xFFCA28 }
+          - label: { id: temp_label, text: "--°C", text_font: font_temp, align: TOP_LEFT, x: 330, y: 60, text_color: 0xFFFFFF }
+          - label: { id: weather_cond, text: "未知", text_font: font_date, align: TOP_LEFT, x: 270, y: 115, text_color: 0x4FC3F7 }
+          
+          - label: { id: hum_icon, text: "\U000F058E", text_font: font_mdi_small, align: TOP_LEFT, x: 270, y: 145, text_color: 0x29B6F6 }
+          - label: { id: hum_label, text: "--%", text_font: font_small, align: TOP_LEFT, x: 290, y: 145, text_color: 0x29B6F6 }
+          - label: { id: wind_icon, text: "\U000F059B", text_font: font_mdi_small, align: TOP_LEFT, x: 360, y: 145, text_color: 0x29B6F6 }
+          - label: { id: wind_label, text: "-- m/s", text_font: font_small, align: TOP_LEFT, x: 380, y: 145, text_color: 0x29B6F6 }
+          - label: { id: feels_icon, text: "\U000F050F", text_font: font_mdi_small, align: TOP_LEFT, x: 270, y: 175, text_color: 0xFF8A65 }
+          - label: { id: feels_label, text: "体感 --°C", text_font: font_small, align: TOP_LEFT, x: 290, y: 175, text_color: 0xFF8A65 }
+          
+          - button:
+              align: BOTTOM_MID
+              y: -15
+              width: 160
+              height: 40
+              bg_color: 0x1A1A1A
+              radius: 20 
+              border_width: 0
+              on_click:
+                - lambda: |-
+                    lv_obj_add_flag(id(page_main), LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_clear_flag(id(page_menu), LV_OBJ_FLAG_HIDDEN);
+              widgets:
+                - label: { text: "应用菜单", align: CENTER, text_font: font_small, text_color: 0x00E5FF }
+
+    # ------------------ 【菜单页】 ------------------
+    - obj:
+        id: page_menu
+        hidden: true
+        width: 100%
+        height: 100%
+        bg_color: 0x000000
+        border_width: 0
+        scrollbar_mode: "OFF"
+        scrollable: false 
+        pad_all: 0
+        widgets:
+          - label: { text: "应用中心", align: TOP_MID, y: 16, text_font: font_small, text_color: 0xE0E0E0 }
+          - button:
+              align: TOP_LEFT
+              x: 20
+              y: 10
+              width: 90
+              height: 35
+              bg_color: 0x1A1A1A
+              radius: 12
+              on_click:
+                - lambda: |-
+                    lv_obj_add_flag(id(page_menu), LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_clear_flag(id(page_main), LV_OBJ_FLAG_HIDDEN);
+              widgets:
+                - label: { text: "\U000F004D", align: LEFT_MID, x: 10, text_font: font_mdi_small, text_color: 0xB0BEC5 }
+                - label: { text: "返回主页", align: LEFT_MID, x: 30, text_font: font_small, text_color: 0xB0BEC5 }
+          - button:
+              align: TOP_MID
+              x: -140
+              y: 60 
+              width: 120
+              height: 90
+              bg_color: 0x1A1A1A
+              radius: 16
+              on_click:
+                - lambda: |-
+                    lv_obj_add_flag(id(page_menu), LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_clear_flag(id(page_pve), LV_OBJ_FLAG_HIDDEN);
+              widgets:
+                - label: { text: "\U000F048B", align: CENTER, y: -10, text_font: font_mdi_apps, text_color: 0xB388FF }
+                - label: { text: "PVE 状态", align: BOTTOM_MID, y: -10, text_font: font_small, text_color: 0xE0E0E0 }
+          - button:
+              align: TOP_MID
+              x: 0
+              y: 60
+              width: 120
+              height: 90
+              bg_color: 0x1A1A1A
+              radius: 16
+              on_click:
+                - lambda: |-
+                    lv_obj_add_flag(id(page_menu), LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_clear_flag(id(page_router), LV_OBJ_FLAG_HIDDEN);
+              widgets:
+                - label: { text: "\U000F0496", align: CENTER, y: -10, text_font: font_mdi_apps, text_color: 0x29B6F6 }
+                - label: { text: "路由器中心", align: BOTTOM_MID, y: -10, text_font: font_small, text_color: 0xE0E0E0 }
+          - button:
+              align: TOP_MID
+              x: 140
+              y: 60
+              width: 120
+              height: 90
+              bg_color: 0x1A1A1A
+              radius: 16
+              widgets:
+                - label: { text: "\U000F02DC", align: CENTER, y: -10, text_font: font_mdi_apps, text_color: 0x00E676 }
+                - label: { text: "智能家居", align: BOTTOM_MID, y: -10, text_font: font_small, text_color: 0xE0E0E0 }
+          - button:
+              align: TOP_MID
+              x: -140
+              y: 165
+              width: 120
+              height: 90
+              bg_color: 0x1A1A1A
+              radius: 16
+              widgets:
+                - label: { text: "\U000F01B4", align: CENTER, y: -10, text_font: font_mdi_apps, text_color: 0xFFCA28 }
+                - label: { text: "存储中心", align: BOTTOM_MID, y: -10, text_font: font_small, text_color: 0xE0E0E0 }
+          - button:
+              align: TOP_MID
+              x: 0
+              y: 165
+              width: 120
+              height: 90
+              bg_color: 0x1A1A1A
+              radius: 16
+              on_click:
+                - lambda: |-
+                    lv_obj_add_flag(id(page_menu), LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_clear_flag(id(page_sysinfo), LV_OBJ_FLAG_HIDDEN);
+              widgets:
+                - label: { text: "\U000F02FC", align: CENTER, y: -10, text_font: font_mdi_apps, text_color: 0x00E5FF }
+                - label: { text: "系统状态", align: BOTTOM_MID, y: -10, text_font: font_small, text_color: 0xE0E0E0 }
+          - button:
+              align: TOP_MID
+              x: 140
+              y: 165
+              width: 120
+              height: 90
+              bg_color: 0x1A1A1A
+              radius: 16
+              on_click:
+                - lambda: |-
+                    lv_obj_add_flag(id(page_menu), LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_clear_flag(id(page_settings), LV_OBJ_FLAG_HIDDEN);
+              widgets:
+                - label: { text: "\U000F0120", align: CENTER, y: -10, text_font: font_mdi_apps, text_color: 0x9E9E9E }
+                - label: { text: "系统设置", align: BOTTOM_MID, y: -10, text_font: font_small, text_color: 0xE0E0E0 }
+
+    # ------------------ 【PVE 状态页】 ------------------
+    - obj:
+        id: page_pve
+        hidden: true 
+        width: 100%
+        height: 100%
+        bg_color: 0x000000
+        border_width: 0
+        scrollbar_mode: "OFF"
+        scrollable: false 
+        pad_all: 0
+        widgets:
+          - button:
+              align: TOP_LEFT
+              x: 20
+              y: 10
+              width: 90
+              height: 35
+              bg_color: 0x1A1A1A 
+              radius: 12
+              on_click:
+                - lambda: |-
+                    lv_obj_add_flag(id(page_pve), LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_clear_flag(id(page_menu), LV_OBJ_FLAG_HIDDEN);
+              widgets:
+                - label: { text: "\U000F004D", align: LEFT_MID, x: 10, text_font: font_mdi_small, text_color: 0xB0BEC5 }
+                - label: { text: "返回", align: LEFT_MID, x: 30, text_font: font_small, text_color: 0xB0BEC5 }
+          - label: { text: "PVE 服务器", align: TOP_MID, y: 16, text_font: font_small, text_color: 0xE0E0E0 }
+          
+          - obj:
+              align: TOP_LEFT
+              x: 30
+              y: 55
+              width: 100
+              height: 100
+              bg_color: 0x000000
+              scrollable: false
+              widgets:
+                - arc: { id: pve_cpu_arc, align: CENTER, width: 90, height: 90, value: 0, bg_color: 0x222222 }
+                - label: { text: "CPU", align: CENTER, y: -15, text_font: font_small, text_color: 0x00E676 }
+                - label: { id: pve_cpu_val, text: "0%", align: CENTER, y: 12, text_font: font_pve_val, text_color: 0xFFFFFF } 
+          - obj:
+              align: TOP_MID
+              y: 55
+              width: 100
+              height: 100
+              bg_color: 0x000000
+              scrollable: false
+              widgets:
+                - arc: { id: pve_ram_arc, align: CENTER, width: 90, height: 90, value: 0, bg_color: 0x222222 }
+                - label: { text: "内存", align: CENTER, y: -15, text_font: font_small, text_color: 0x29B6F6 }
+                - label: { id: pve_ram_val, text: "0%", align: CENTER, y: 12, text_font: font_pve_val, text_color: 0xFFFFFF }
+          - obj:
+              align: TOP_RIGHT
+              x: -30
+              y: 55
+              width: 100
+              height: 100
+              bg_color: 0x000000
+              scrollable: false
+              widgets:
+                - arc: { id: pve_disk_arc, align: CENTER, width: 90, height: 90, value: 0, bg_color: 0x222222 }
+                - label: { text: "磁盘", align: CENTER, y: -15, text_font: font_small, text_color: 0xFFCA28 }
+                - label: { id: pve_disk_val, text: "0%", align: CENTER, y: 12, text_font: font_pve_val, text_color: 0xFFFFFF }
+          
+          - label: { id: icon_100, text: "●", x: 20, y: 175, text_font: font_small, text_color: 0x424242 }
+          - label: { id: name_100, text: "iKuai", x: 40, y: 175, text_font: font_small, text_color: 0x757575 }
+          - label: { id: icon_101, text: "●", x: 135, y: 175, text_font: font_small, text_color: 0x424242 }
+          - label: { id: name_101, text: "OpenWrt", x: 155, y: 175, text_font: font_small, text_color: 0x757575 }
+          - label: { id: icon_102, text: "●", x: 260, y: 175, text_font: font_small, text_color: 0x424242 }
+          - label: { id: name_102, text: "AD", x: 280, y: 175, text_font: font_small, text_color: 0x757575 }
+          - label: { id: icon_103, text: "●", x: 350, y: 175, text_font: font_small, text_color: 0x424242 }
+          - label: { id: name_103, text: "Jike", x: 370, y: 175, text_font: font_small, text_color: 0x757575 }
+          - label: { id: icon_104, text: "●", x: 20, y: 200, text_font: font_small, text_color: 0x424242 }
+          - label: { id: name_104, text: "Ubuntu", x: 40, y: 200, text_font: font_small, text_color: 0x757575 }
+          - label: { id: icon_105, text: "●", x: 135, y: 200, text_font: font_small, text_color: 0x424242 }
+          - label: { id: name_105, text: "Synology", x: 155, y: 200, text_font: font_small, text_color: 0x757575 }
+          - label: { id: icon_106, text: "●", x: 260, y: 200, text_font: font_small, text_color: 0x424242 }
+          - label: { id: name_106, text: "HAOS", x: 280, y: 200, text_font: font_small, text_color: 0x757575 }
+          - label: { id: icon_107, text: "●", x: 350, y: 200, text_font: font_small, text_color: 0x424242 }
+          - label: { id: name_107, text: "Win11", x: 370, y: 200, text_font: font_small, text_color: 0x757575 }
+          - label: { id: icon_108, text: "●", x: 20, y: 225, text_font: font_small, text_color: 0x424242 }
+          - label: { id: name_108, text: "macOS", x: 40, y: 225, text_font: font_small, text_color: 0x757575 }
+          - label: { id: icon_109, text: "●", x: 135, y: 225, text_font: font_small, text_color: 0x424242 }
+          - label: { id: name_109, text: "CT109", x: 155, y: 225, text_font: font_small, text_color: 0x757575 }
+          - label: { id: icon_110, text: "●", x: 260, y: 225, text_font: font_small, text_color: 0x424242 }
+          - label: { id: name_110, text: "OpenClaw", x: 280, y: 225, text_font: font_small, text_color: 0x757575 }
+          - label: { id: icon_200, text: "●", x: 350, y: 225, text_font: font_small, text_color: 0x424242 }
+          - label: { id: name_200, text: "Grafana", x: 370, y: 225, text_font: font_small, text_color: 0x757575 }
+
+    # ------------------ 【路由器中心页】 ------------------
+    - obj:
+        id: page_router
+        hidden: true
+        width: 100%
+        height: 100%
+        bg_color: 0x000000
+        border_width: 0
+        scrollbar_mode: "OFF"
+        scrollable: false 
+        pad_all: 0
+        widgets:
+          - button:
+              align: TOP_LEFT 
+              x: 20
+              y: 10
+              width: 90
+              height: 35
+              bg_color: 0x1A1A1A 
+              radius: 12
+              on_click:
+                - lambda: |-
+                    lv_obj_add_flag(id(page_router), LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_clear_flag(id(page_menu), LV_OBJ_FLAG_HIDDEN);
+              widgets:
+                - label: { text: "\U000F004D", align: LEFT_MID, x: 10, text_font: font_mdi_small, text_color: 0xB0BEC5 }
+                - label: { text: "返回", align: LEFT_MID, x: 30, text_font: font_small, text_color: 0xB0BEC5 }
+          - label: { text: "路由器中心", align: TOP_MID, y: 16, text_font: font_small, text_color: 0xE0E0E0 }
+          
+          - obj:
+              align: TOP_MID
+              x: -150
+              y: 60
+              width: 140
+              height: 180
+              bg_color: 0x1A1A1A
+              radius: 16
+              scrollable: false
+              widgets:
+                - label: { text: "主路由 (iKuai)", align: TOP_MID, y: 15, width: 100%, text_align: CENTER, text_align: CENTER, text_font: font_small, text_color: 0x9E9E9E }
+                - obj: { width: 120, height: 1, align: TOP_MID, y: 40, bg_color: 0x2C2C2C, border_width: 0 }
+                - label: { id: ikuai_online_lbl, text: "在线：-- 设备", align: TOP_MID, y: 60, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0xE0E0E0 }
+                - label: { id: ikuai_up_lbl, text: "上传：-- MB/s", align: TOP_MID, y: 100, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0x00E676 }
+                - label: { id: ikuai_down_lbl, text: "下载：-- MB/s", align: TOP_MID, y: 140, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0x29B6F6 }
+          
+          - obj:
+              align: TOP_MID
+              x: 0
+              y: 60
+              width: 140
+              height: 180
+              bg_color: 0x1A1A1A
+              radius: 16
+              scrollable: false
+              widgets:
+                - label: { text: "旁路由 (Clash)", align: TOP_MID, y: 15, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0x9E9E9E }
+                - obj: { width: 120, height: 1, align: TOP_MID, y: 40, bg_color: 0x2C2C2C, border_width: 0 }
+                - label: { id: clash_conn_lbl, text: "连接数：--", align: TOP_MID, y: 60, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0xE0E0E0 }
+                - label: { id: clash_up_lbl, text: "上传：-- MB/s", align: TOP_MID, y: 100, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0x00E676 }
+                - label: { id: clash_down_lbl, text: "下载：-- MB/s", align: TOP_MID, y: 140, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0x29B6F6 }
+          
+          - obj:
+              align: TOP_MID
+              x: 150
+              y: 60
+              width: 140
+              height: 180
+              bg_color: 0x1A1A1A
+              radius: 16
+              scrollable: false
+              widgets:
+                - label: { text: "去广告 (ADG)", align: TOP_MID, y: 15, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0x9E9E9E }
+                - obj: { width: 120, height: 1, align: TOP_MID, y: 40, bg_color: 0x2C2C2C, border_width: 0 }
+                - label: { id: adguard_blocked_lbl, text: "已拦截：--", align: TOP_MID, y: 60, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0xE0E0E0 }
+                - label: { id: adguard_ratio_lbl, text: "拦截率：--%", align: TOP_MID, y: 100, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0x00E5FF }
+                - label: { id: adguard_speed_lbl, text: "耗时：-- ms", align: TOP_MID, y: 140, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0xFFCA28 }
+
+    # ------------------ 【系统状态页】 ------------------
+    - obj:
+        id: page_sysinfo
+        hidden: true
+        width: 100%
+        height: 100%
+        bg_color: 0x000000
+        border_width: 0
+        scrollbar_mode: "OFF"
+        pad_all: 0
+        scrollable: false 
+        widgets:
+          - button:
+              align: TOP_LEFT 
+              x: 20 
+              y: 10
+              width: 90
+              height: 35
+              bg_color: 0x1A1A1A 
+              radius: 12
+              on_click:
+                - lambda: |-
+                    lv_obj_add_flag(id(page_sysinfo), LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_clear_flag(id(page_menu), LV_OBJ_FLAG_HIDDEN);
+              widgets:
+                - label: { text: "\U000F004D", align: LEFT_MID, x: 10, text_font: font_mdi_small, text_color: 0xB0BEC5 }
+                - label: { text: "返回", align: LEFT_MID, x: 30, text_font: font_small, text_color: 0xB0BEC5 }
+          - label: { text: "系统状态", align: TOP_MID, y: 16, text_font: font_small, text_color: 0xE0E0E0 }
+          
+          - obj:
+              align: TOP_LEFT
+              x: 20
+              y: 60
+              width: 210
+              height: 190
+              bg_color: 0x1A1A1A
+              radius: 16
+              scrollbar_mode: "OFF"
+              scrollable: false
+              widgets:
+                - label: { text: "网络信息", align: TOP_MID, y: 15, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0x00E5FF }
+                - obj: { width: 180, height: 1, align: TOP_MID, y: 45, bg_color: 0x2C2C2C, border_width: 0 }
+                - label: { id: sys_ip_lbl, text: "IP: --", align: TOP_MID, y: 65, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0xE0E0E0 }
+                - label: { id: sys_mac_lbl, text: "MAC: --", align: TOP_MID, y: 105, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0x9E9E9E }
+                - label: { id: sys_wifi_lbl, text: "信号：-- dBm", align: TOP_MID, y: 145, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0x00E676 }
+          
+          - obj:
+              align: TOP_RIGHT
+              x: -20
+              y: 60
+              width: 210
+              height: 190
+              bg_color: 0x1A1A1A
+              radius: 16
+              scrollbar_mode: "OFF"
+              scrollable: false
+              widgets:
+                - label: { text: "运行状态", align: TOP_MID, y: 15, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0xFFCA28 }
+                - obj: { width: 180, height: 1, align: TOP_MID, y: 45, bg_color: 0x2C2C2C, border_width: 0 }
+                - label: { id: sys_uptime_lbl, text: "已运行：--", align: TOP_MID, y: 65, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0xE0E0E0 }
+                - label: { id: sys_ram_lbl, text: "可用内存：--", align: TOP_MID, y: 105, width: 100%, text_align: CENTER, text_font: font_small, text_color: 0x29B6F6 }
+
+    # ------------------ 【设置页】 ------------------
+    - obj:
+        id: page_settings
+        hidden: true
+        width: 100%
+        height: 100%
+        bg_color: 0x000000
+        border_width: 0
+        scrollbar_mode: "OFF"
+        scrollable: false 
+        pad_all: 0
+        widgets:
+          - button:
+              align: TOP_LEFT 
+              x: 20 
+              y: 10
+              width: 90
+              height: 35
+              bg_color: 0x1A1A1A 
+              radius: 12
+              on_click:
+                - lambda: |-
+                    lv_obj_add_flag(id(page_settings), LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_clear_flag(id(page_menu), LV_OBJ_FLAG_HIDDEN);
+              widgets:
+                - label: { text: "\U000F004D", align: LEFT_MID, x: 10, text_font: font_mdi_small, text_color: 0xB0BEC5 }
+                - label: { text: "返回", align: LEFT_MID, x: 30, text_font: font_small, text_color: 0xB0BEC5 }
+          - label: { text: "系统设置", align: TOP_MID, y: 16, text_font: font_small, text_color: 0xE0E0E0 }
+          
+          - obj:
+              align: TOP_MID
+              y: 55
+              width: 420
+              height: 45
+              bg_color: 0x1A1A1A
+              radius: 12
+              scrollbar_mode: "OFF"
+              scrollable: false
+              widgets:
+                - label: { text: "\U000F0599", align: LEFT_MID, x: 20, text_font: font_mdi_status, text_color: 0xFFEA00 }
+                - label: { text: "屏幕亮度", align: LEFT_MID, x: 60, text_font: font_small, text_color: 0xFFFFFF }
+                - slider:
+                    id: slider_brightness
+                    align: RIGHT_MID
+                    x: -20
+                    width: 220
+                    height: 10
+                    value: 100
+                    on_value:
+                      - lambda: |-
+                          float brightness = (float)x / 100.0f;
+                          auto call = id(display_backlight).turn_on();
+                          call.set_brightness(brightness);
+                          call.perform();
+          
+          - obj:
+              align: TOP_MID
+              y: 110
+              width: 420
+              height: 45
+              bg_color: 0x1A1A1A
+              radius: 12
+              scrollbar_mode: "OFF"
+              scrollable: false
+              widgets:
+                - label: { text: "\U000F050F", align: LEFT_MID, x: 20, text_font: font_mdi_status, text_color: 0xFF9800 }
+                - label: { text: "息屏时间", align: LEFT_MID, x: 60, text_font: font_small, text_color: 0xFFFFFF }
+                - label: { id: sleep_time_lbl, text: "15 秒", align: RIGHT_MID, x: -250, text_font: font_small, text_color: 0x9E9E9E }
+                - slider:
+                    id: slider_sleep_time
+                    align: RIGHT_MID
+                    x: -20
+                    width: 220
+                    height: 10
+                    min_value: 5
+                    max_value: 120
+                    value: 15
+                    on_value:
+                      - lambda: |-
+                          id(sleep_time).publish_state(x);
+                          lv_label_set_text(id(sleep_time_lbl), str_sprintf("%d 秒", (int)x).c_str());
+          
+          - obj:
+              align: TOP_MID
+              y: 165
+              width: 420
+              height: 45
+              bg_color: 0x1A1A1A
+              radius: 12
+              scrollbar_mode: "OFF"
+              scrollable: false
+              widgets:
+                - label: { text: "\U000F0599", align: LEFT_MID, x: 20, text_font: font_mdi_status, text_color: 0x00E676 }
+                - label: { text: "常亮模式", align: LEFT_MID, x: 60, text_font: font_small, text_color: 0xFFFFFF }
+                - button:
+                    id: btn_always_on
+                    align: RIGHT_MID
+                    x: -20
+                    width: 60
+                    height: 25
+                    bg_color: 0x424242
+                    radius: 12
+                    on_click:
+                      - lambda: |-
+                          id(always_on_mode) = !id(always_on_mode);
+                          if (id(always_on_mode)) {
+                            lv_obj_set_style_bg_color(id(btn_always_on), lv_color_hex(0x00E676), 0);
+                            lv_label_set_text(id(lbl_always_on_btn), "开");
+                          } else {
+                            lv_obj_set_style_bg_color(id(btn_always_on), lv_color_hex(0x424242), 0);
+                            lv_label_set_text(id(lbl_always_on_btn), "关");
+                          }
+                    widgets:
+                      - label: { id: lbl_always_on_btn, text: "关", align: CENTER, text_font: font_small, text_color: 0xFFFFFF }
+          
+          - button:
+              align: TOP_LEFT
+              x: 30
+              y: 220
+              width: 195
+              height: 40
+              bg_color: 0x1A1A1A
+              radius: 12
+              on_click:
+                - light.turn_off: display_backlight
+              widgets:
+                - label: { text: "一键息屏", align: CENTER, text_font: font_small, text_color: 0x9E9E9E }
+          
+          - button:
+              align: TOP_RIGHT
+              x: -30
+              y: 220
+              width: 195
+              height: 40
+              bg_color: 0x3F1D1D 
+              radius: 12
+              on_click:
+                - button.press: sys_restart
+              widgets:
+                - label: { text: "重启设备", align: CENTER, text_font: font_small, text_color: 0xFF5252 }
