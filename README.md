@@ -1,141 +1,161 @@
-# ESPHome 智能屏中控 - Guition JC4827W543C
+# ESPHome Smart PDA
 
-基于 ESP32-S3 的智能家居中控面板，集成 Home Assistant、农历显示、VM 监控、路由器状态等功能。
+基于 ESP32-S3 的智能家居控制面板，支持 LVGL 图形界面，显示时间、天气、农历、虚拟机状态等信息。
 
-![ESP32-S3](https://img.shields.io/badge/ESP32--S3-480x272-blue)
-![Home Assistant](https://img.shields.io/badge/Home_Assistant-Integration-blue)
-![LVGL](https://img.shields.io/badge/LVGL-8.0-green)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+## 📦 所需 Home Assistant 集成
 
----
+在使用此配置文件前，请确保 Home Assistant 中已安装以下集成：
 
-## 📸 效果预览
+### 必需集成
 
-> **[待补充：屏幕实拍照片/GIF]**
+| 集成名称 | 用途 | 安装方式 |
+|---------|------|---------|
+| **OpenWeatherMap** | 天气数据 | HA 内置集成 |
+| **Proxmox VE** | PVE 服务器监控 | HACS: [Proxmox VE Integration](https://github.com/dougite/proxmoxve-hass) |
+| **AdGuard Home** | 广告拦截统计 | HA 内置集成 |
+| **Clash** | 代理流量监控 | HACS: [Clash](https://github.com/ha0z01/ha_clash) |
+| **iKuai** | 爱快路由器监控 | HACS: [iKuai](https://github.com/SimonKniep/ha-ikuai) |
+| **农历传感器** | 农历日期显示 | 手动安装（见下文） |
 
----
+### 可选集成
 
-## 🎯 功能特性
-
-- ✅ **480x272 彩屏显示** - QSPI DBI 驱动，流畅 UI
-- ✅ **电容触摸** - GT911 触摸控制器
-- ✅ **Home Assistant 集成** - 实时同步 HA 实体状态
-- ✅ **农历显示** - 传统节日倒计时
-- ✅ **VM 状态监控** - PVE 虚拟机运行状态
-- ✅ **路由器监控** - iKuai/OpenWrt/AdGuard 实时数据
-- ✅ **天气显示** - 温度、湿度、风速
-- ✅ **自动息屏** - 可调节亮度 + 休眠时间
+| 集成名称 | 用途 | 安装方式 |
+|---------|------|---------|
+| **ESXi Stats** | VMware 虚拟机监控 | HACS: [ESXi Stats](https://github.com/wxt2005/esxi_stats) |
 
 ---
 
-## 📦 硬件清单
+## 🔧 集成安装指南
 
-| 组件 | 型号 | 数量 | 备注 |
-|------|------|------|------|
-| 主控板 | ESP32-S3 | 1 | 8MB PSRAM |
-| 屏幕 | Guition JC4827W543C | 1 | 480x272 QSPI |
-| 触摸 | GT911 | 1 | 电容触摸 |
-| 杜邦线 | - | 若干 | 连接用 |
+### 1. OpenWeatherMap (天气)
 
-### 购买链接
-> **[待补充：淘宝/拼多多/1688 链接]**
+1. 获取 API Key: https://home.openweathermap.org/users/sign_up
+2. HA 中：**设置** → **设备与服务** → **添加集成** → 搜索 `OpenWeatherMap`
+3. 输入 API Key 和位置信息
 
----
-
-## 🔌 接线图
-
-### GPIO 分配
-
-| 功能 | GPIO | 备注 |
-|------|------|------|
-| QSPI CLK | GPIO47 | |
-| QSPI D0 | GPIO21 | |
-| QSPI D1 | GPIO48 | |
-| QSPI D2 | GPIO40 | |
-| QSPI D3 | GPIO39 | |
-| QSPI CS | GPIO45 | |
-| 背光 PWM | GPIO1 | |
-| I2C SDA | GPIO8 | GT911 |
-| I2C SCL | GPIO4 | GT911 |
-| 触摸中断 | GPIO3 | GT911 |
-| 触摸复位 | GPIO38 | GT911 |
-
-> **[待补充：Fritzing 接线图]**
-
----
-
-## 🚀 快速开始
-
-### 1️⃣ 环境准备
+### 2. Proxmox VE (PVE 监控)
 
 ```bash
-# 安装 ESPHome
-pip3 install esphome
-
-# 或使用 Home Assistant 插件
-# Home Assistant → 设置 → 插件 → ESPHome
+# HACS 安装
+1. HACS → 集成 → 探索并下载仓库
+2. 搜索 "Proxmox VE"
+3. 安装 https://github.com/dougite/proxmoxve-hass
+4. 重启 HA
+5. 设置 → 设备与服务 → 添加集成 → Proxmox VE
 ```
 
-### 2️⃣ 配置密钥
+**配置信息:**
+- Host: `192.168.2.4` (你的 PVE IP)
+- Port: `8006`
+- 用户名：`root`
+- 密码：你的 PVE 密码
+- 选择监控的 VM 和 LXC
+
+### 3. AdGuard Home (广告拦截)
+
+HA 内置集成，直接添加：
+- Host: `192.168.2.8` (你的 AdGuard IP)
+- 端口：`3000` (默认)
+- 用户名/密码：你的 AdGuard 登录信息
+
+### 4. Clash (代理监控)
 
 ```bash
-# 复制密钥模板
-cp secrets.example.yaml secrets.yaml
-
-# 编辑 secrets.yaml，填入你的信息
-vim secrets.yaml
+# HACS 安装
+1. HACS → 集成 → 探索并下载仓库
+2. 搜索 "Clash"
+3. 安装 https://github.com/ha0z01/ha_clash
+4. 重启 HA
+5. 配置 Clash 实例
 ```
 
-### 3️⃣ 编译上传
+### 5. iKuai (爱快路由)
 
 ```bash
-# 编译
-esphome compile smart-pda.yaml
+# HACS 安装
+1. HACS → 集成 → 探索并下载仓库
+2. 搜索 "iKuai"
+3. 安装 https://github.com/SimonKniep/ha-ikuai
+4. 重启 HA
+5. 配置 iKuai 登录信息
+```
 
-# 上传 (首次需要 USB 连接)
-esphome upload smart-pda.yaml
+### 6. 农历传感器
 
-# 后续可 OTA 更新
-esphome upload smart-pda.yaml --device 192.168.2.XXX
+**方法 1: 使用 HACS 自定义集成**
+```bash
+1. HACS → 集成 → 添加自定义仓库
+2. 仓库 URL: https://github.com/Jane84894/ha-lunar-sensor
+3. 安装农历传感器
+4. 重启 HA
+```
+
+**方法 2: 手动安装**
+```bash
+# 下载并复制到 HA 配置目录
+cd /config/custom_components
+git clone https://github.com/Jane84894/ha-lunar-sensor.git lunar_calendar
+# 重启 HA
 ```
 
 ---
 
-## 🏠 Home Assistant 集成
+## 📊 所需传感器实体
 
-### 必需实体
+确保以下实体在 HA 中存在：
 
-#### 农历传感器
-```yaml
-# 在 HA 的 configuration.yaml 中添加
-python_script:
-  lunar_sensor: |
-    # 使用提供的 lunar_sensor.py 脚本
-```
+### 虚拟机状态 (binary_sensor)
+- `binary_sensor.ikuai_status` - iKuai 路由
+- `binary_sensor.openwrt_status` - OpenWrt 路由
+- `binary_sensor.ad_status` - AD 域控
+- `binary_sensor.jike_status` - 集客 AC
+- `binary_sensor.ubuntu_server_status` - Ubuntu 服务器
+- `binary_sensor.synology_status` - 群晖 NAS
+- `binary_sensor.ha_status` - HA 自身
+- `binary_sensor.win11_status` - Windows 11
+- `binary_sensor.hack_big_sur_status` - 黑苹果
+- `binary_sensor.ct109_status` - CT109
+- `binary_sensor.openclaw_status` - OpenClaw
+- `binary_sensor.monitor_grafana_status` - Grafana 监控
 
-> **[待补充：农历传感器配置链接]**
+### 传感器 (sensor)
 
-#### VM 状态监控
-```yaml
-# 二进制传感器 (示例)
-template:
-  - binary_sensor:
-      - name: "iKuai 状态"
-        unique_id: ikuai_status
-        state: "{{ is_state('binary_sensor.ikuai_status', 'on') }}"
-```
+**天气:**
+- `sensor.openweathermap_temperature` - 温度
+- `sensor.openweathermap_humidity` - 湿度
+- `sensor.openweathermap_wind_speed` - 风速
+- `sensor.openweathermap_apparent_temperature` - 体感温度
+- `sensor.openweathermap_weather` - 天气状况
 
-#### 路由器数据
-```yaml
-# iKuai 上传/下载速度
-sensor:
-  - platform: rest
-    resource: "http://192.168.2.1/api/status"
-    name: "iKuai Upload"
-```
+**PVE 监控:**
+- `sensor.pve_cpu_usage` - CPU 使用率
+- `sensor.pve_max_cpu` - 最大 CPU
+- `sensor.pve_memory_usage` - 内存使用
+- `sensor.pve_max_memory_usage` - 最大内存
+- `sensor.pve_disk_usage` - 磁盘使用
+- `sensor.pve_max_disk_usage` - 最大磁盘
+- `sensor.pve_status` - PVE 状态
 
-### 完整 HA 配置
-> **[待补充：ha-templates/ 目录链接]**
+**路由器:**
+- `sensor.ikuai_upload` - iKuai 上传速度
+- `sensor.ikuai_download` - iKuai 下载速度
+- `sensor.ikuai_online_user` - iKuai 在线设备数
+
+**Clash:**
+- `sensor.clash_shi_li_upload_speed` - 上传速度
+- `sensor.clash_shi_li_download_speed` - 下载速度
+- `sensor.clash_shi_li_connection_number` - 连接数
+
+**AdGuard:**
+- `sensor.adguard_home_dns_queries_blocked` - 已拦截查询数
+- `sensor.adguard_home_dns_queries_blocked_ratio` - 拦截率
+- `sensor.adguard_home_average_processing_speed` - 平均处理速度
+
+**农历:**
+- `sensor.nong_li_ri_qi` - 农历日期
+- `sensor.nong_li_ri_qi_2` - 农历日期 (数字)
+- `sensor.sheng_xiao` - 生肖
+- `sensor.gan_zhi_nian` - 干支年
 
 ---
 
@@ -144,18 +164,52 @@ sensor:
 ```
 esp-smart-screen/
 ├── README.md                 # 本文件
-├── smart-pda.yaml            # ESPHome 主配置
-├── secrets.example.yaml      # 密钥模板 (复制为 secrets.yaml)
-├── fonts/                    # 字体文件
-│   ├── misans.ttf           # MiSans 字体
-│   └── materialdesignicons-webfont.ttf
-├── ha-templates/             # HA 模板配置
-│   ├── lunar.yaml           # 农历传感器
-│   ├── vm-status.yaml       # VM 状态
-│   └── router.yaml          # 路由器监控
-└── docs/
-    ├── wiring.md            # 详细接线图
-    └── build-guide.md       # 编译指南
+├── smart-pda-fixed.yaml      # ESPHome 配置文件 ⭐
+└── secrets.example.yaml      # 密钥模板
+```
+
+---
+
+## 🚀 使用方法
+
+### 1. 准备密钥文件
+
+```bash
+# 复制密钥模板
+cp secrets.example.yaml secrets.yaml
+
+# 编辑密钥文件
+nano secrets.yaml
+```
+
+**需要修改的密钥:**
+- `api_key` - ESPHome API 加密密钥
+- `wifi_ssid` - WiFi 名称
+- `wifi_password` - WiFi 密码
+
+### 2. 上传到 ESPHome
+
+**方法 1: ESPHome Dashboard**
+1. 打开 ESPHome Dashboard
+2. 点击 **New Device** 或选择现有设备
+3. 点击 **Edit**
+4. 复制 `smart-pda-fixed.yaml` 内容
+5. 粘贴并 **Save**
+6. 点击 **Install**
+
+**方法 2: 命令行**
+```bash
+esphome upload smart-pda-fixed.yaml
+```
+
+### 3. 编译和上传
+
+```bash
+# 编译
+esphome compile smart-pda-fixed.yaml
+
+# 上传 (替换设备 IP)
+esphome upload smart-pda-fixed.yaml --device 192.168.2.201
 ```
 
 ---
@@ -164,8 +218,8 @@ esp-smart-screen/
 
 ### 主页
 - 时间日期
-- 农历显示
-- 天气信息
+- 农历显示 (含生肖、干支年)
+- 天气信息 (温度、湿度、风速、体感)
 - HA 连接状态
 
 ### 应用菜单
@@ -173,101 +227,86 @@ esp-smart-screen/
 - 路由器中心
 - 智能家居
 - 存储中心
-- 虚拟主机
-- 设置
+- 系统状态
+- 系统设置
 
 ### PVE 状态页
-- CPU/内存/磁盘使用率
-- 11 台 VM 运行状态
+- CPU/内存/磁盘仪表盘
+- 12 台虚拟机状态指示灯
 
 ### 路由器中心
-- iKuai 主路由 (上传/下载/在线设备)
-- OpenWrt 旁路由 (Clash 连接数)
-- AdGuard Home (拦截统计)
+- iKuai (主路由): 在线设备、上传/下载速度
+- Clash (旁路由): 连接数、上传/下载速度
+- AdGuard: 拦截数、拦截率、处理速度
+
+### 系统状态页
+- 网络信息 (IP、MAC、WiFi 信号)
+- 运行状态 (运行时间、可用内存)
 
 ### 设置页
 - 屏幕亮度调节
-- 自动息屏时间
+- 息屏时间设置
+- 常亮模式开关
+- 一键息屏
+- 重启设备
 
 ---
 
-## ⚙️ 配置说明
+## ⚙️ 配置选项
 
-### WiFi 配置
+### 屏幕设置
 ```yaml
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-  fast_connect: false  # 根据网络环境调整
+number.sleep_time: 息屏时间 (5-600 秒，默认 15 秒)
 ```
 
-### 显示配置
+### 常亮模式
 ```yaml
-display:
-  - platform: qspi_dbi
-    model: CUSTOM
-    dimensions:
-      width: 480
-      height: 272
-    init_sequence: [...]  # 屏幕初始化序列
+globals.always_on_mode: 常亮模式 (true/false)
 ```
 
-### LVGL 配置
+### 更新频率
 ```yaml
-lvgl:
-  buffer_size: 20%  # 根据 PSRAM 大小调整
-  color_depth: 16
+interval: 5s  # LVGL 刷新频率 (已优化)
 ```
 
 ---
 
 ## 🔧 故障排除
 
-### 屏幕不亮
-- 检查 GPIO 接线是否正确
-- 确认背光 PWM 配置
-- 尝试调整 `init_sequence`
-
-### 触摸无响应
-- 检查 GT911 中断/复位引脚
-- 确认 I2C 地址 (默认 0x5D)
-- 尝试 `ignore_strapping_warning: true`
-
-### HA 连接失败
-- 确认 API 密钥正确
-- 检查 HA 是否启用 `api:` 组件
-- 查看日志 `esphome logs smart-pda.yaml`
-
-### 编译错误
+### 1. 编译失败
 ```bash
 # 清理缓存
-esphome clean smart-pda.yaml
+esphome clean smart-pda-fixed.yaml
 
 # 重新编译
-esphome compile smart-pda.yaml
+esphome compile smart-pda-fixed.yaml
 ```
 
+### 2. 传感器显示 "--"
+- 检查 HA 中对应实体是否存在
+- 检查实体 ID 是否正确
+- 检查 HA 与 ESPHome 的连接
+
+### 3. 屏幕不显示
+- 检查 GPIO 引脚定义
+- 检查屏幕初始化序列
+- 检查背光 PWM 配置
+
+### 4. 触摸不灵敏
+- 检查 I2C 引脚 (SDA: GPIO8, SCL: GPIO4)
+- 检查触摸 IC 复位引脚 (GPIO38)
+- 检查中断引脚 (GPIO3)
+
 ---
 
-## 📊 功耗数据
+## 📝 更新日志
 
-| 状态 | 电流 | 备注 |
-|------|------|------|
-| 屏幕常亮 | ~300mA | 背光 100% |
-| 自动息屏 | ~50mA | 背光关闭 |
-| 深度睡眠 | ~10mA | 需外接唤醒 |
-
----
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 PR！
-
-### 你可以贡献
-- 🐛 Bug 修复
-- 📝 文档完善
-- 🎨 UI 优化
-- 🔌 新功能
+### v1.0 (2026-03-14)
+- ✅ 添加生肖和干支年传感器支持
+- ✅ 优化更新频率 (1 秒 → 5 秒)
+- ✅ 添加空值检查防止崩溃
+- ✅ 优化字体 glyphs 定义
+- ✅ 添加内存保护
 
 ---
 
@@ -282,15 +321,3 @@ MIT License
 - [ESPHome](https://esphome.io/)
 - [LVGL](https://lvgl.io/)
 - [Home Assistant](https://www.home-assistant.io/)
-- [Guition](https://github.com/Guition)
-
----
-
-## 📬 联系方式
-
-- GitHub: [@Jane84894](https://github.com/Jane84894)
-- 问题反馈：[Issues](https://github.com/Jane84894/esp-smart-screen/issues)
-
----
-
-**[待补充：演示视频/二维码]**
