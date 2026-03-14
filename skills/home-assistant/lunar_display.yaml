@@ -1,0 +1,260 @@
+# ESPHome 农历时钟 - 完整配置
+# 使用方案 3: HA API + 本地显示
+# 适用于 ESP32 + SSD1306 OLED 显示屏
+
+esphome:
+  name: lunar-clock
+  friendly_name: 农历时钟
+  comment: "显示农历日期和节日倒计时"
+  project:
+    name: "lunar.clock"
+    version: "1.0"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+    version: recommended
+
+# WiFi 配置
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # 热点备份
+  ap:
+    ssid: "Lunar Clock"
+    password: "fallback123"
+  
+  # 连接超时
+  power_save_mode: LIGHT
+  fast_connect: true
+
+captive_portal:
+
+# 日志
+logger:
+  level: INFO
+  baud_rate: 115200
+
+# OTA 更新
+ota:
+  platform: esphome
+  password: "ota_password"
+
+# Home Assistant API
+api:
+  encryption:
+    key: !secret api_key
+  reboot_timeout: 15min
+
+# 网络时间 (用于计算)
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+    timezone: "Asia/Shanghai"
+    on_time:
+      # 每天午夜刷新农历
+      - hours: 0
+        minutes: 0
+        seconds: 0
+        then:
+          - lambda: |-
+              ESP_LOGI("main", "午夜刷新农历");
+              id(display_component).update();
+      
+      # 每小时更新一次
+      - hours: /1
+        minutes: 0
+        seconds: 0
+        then:
+          - lambda: |-
+              id(display_component).update();
+
+# 从 HA 获取农历数据
+sensor:
+  # 农历月份 (1-12)
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: lunar_month
+    name: "农历月"
+    id: lunar_month_num
+    update_interval: 60s
+  
+  # 农历日期 (1-30)
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: lunar_day
+    name: "农历日"
+    id: lunar_day_num
+    update_interval: 60s
+  
+  # 节日倒计时
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: next_traditional_days
+    name: "节日倒计时"
+    id: festival_days
+    update_interval: 60s
+    filters:
+      - lambda: |-
+          if (x < 0) return 0;
+          return x;
+
+text_sensor:
+  # 完整农历 (正月廿六)
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    name: "农历"
+    id: lunar_text
+    update_interval: 60s
+  
+  # 生肖
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: zodiac
+    name: "生肖"
+    id: zodiac_text
+    update_interval: 60s
+  
+  # 下一个节日
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: next_traditional
+    name: "下一个节日"
+    id: next_festival_text
+    update_interval: 60s
+  
+  # 公历日期
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: gregorian_date
+    name: "公历"
+    id: gregorian_text
+    update_interval: 60s
+  
+  # 干支年
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: gz_year
+    name: "干支"
+    id: gz_year_text
+    update_interval: 60s
+  
+  # 星期
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: week_cn
+    name: "星期"
+    id: week_text
+    update_interval: 60s
+
+# I2C OLED 显示屏
+i2c:
+  sda: GPIO21
+  scl: GPIO22
+  scan: true
+
+display:
+  - platform: ssd1306_i2c
+    id: display_component
+    model: "SSD1306 128x64"
+    address: 0x3C
+    lambda: |-
+      // 清屏
+      it.clear();
+      
+      // 公历日期 (顶部)
+      it.printf(64, 0, id(font_small), TEXT_ALIGN_CENTER, "%s 周%s", 
+                id(gregorian_text).state.c_str(),
+                id(week_text).state.c_str());
+      
+      // 分隔线
+      it.line(0, 10, 127, 10);
+      
+      // 农历 (中间大字)
+      it.printf(64, 18, id(font_large), TEXT_ALIGN_CENTER, "%s", 
+                id(lunar_text).state.c_str());
+      
+      // 干支 + 生肖
+      it.printf(64, 38, id(font_small), TEXT_ALIGN_CENTER, "%s年 [%s]", 
+                id(gz_year_text).state.c_str(),
+                id(zodiac_text).state.c_str());
+      
+      // 分隔线
+      it.line(0, 50, 127, 50);
+      
+      // 节日倒计时 (底部)
+      if (id(festival_days).state >= 0 && id(festival_days).state <= 365) {
+        it.printf(64, 54, id(font_small), TEXT_ALIGN_CENTER, "距离%s: %.0f 天", 
+                  id(next_festival_text).state.c_str(), 
+                  id(festival_days).state);
+      } else {
+        it.printf(64, 54, id(font_small), TEXT_ALIGN_CENTER, "节日快乐！");
+      }
+
+# 字体配置 (支持中文)
+font:
+  - file: "gfonts://Noto Sans SC"
+    id: font_small
+    size: 10
+    glyphs: "0123456789.-+:() 年月日时分秒周春节元宵清端七中中秋重腊小除夕龙上巳下元妇女劳动青年儿童建党建军教师国庆"
+  
+  - file: "gfonts://Noto Sans SC"
+    id: font_large
+    size: 18
+    glyphs: "正月二三四五六七八九十冬腊月廿卅初一二三四五六七八九十"
+
+# Web 服务器 (可选 - 用于调试)
+web_server:
+  port: 80
+  version: 2
+
+# 按钮 (可选 - 手动刷新)
+button:
+  - platform: template
+    name: "刷新显示"
+    on_press:
+      then:
+        - lambda: |-
+            id(display_component).update();
+            ESP_LOGI("main", "手动刷新显示");
+
+# 开关 (可选 - 关闭显示)
+switch:
+  - platform: template
+    name: "显示屏开关"
+    id: display_switch
+    optimistic: true
+    restore_mode: ALWAYS_ON
+    on_turn_on:
+      - lambda: id(display_component).turn_on();
+    on_turn_off:
+      - lambda: id(display_component).turn_off();
+
+# 二进制传感器 (可选 - 光敏电阻自动开关)
+# binary_sensor:
+#   - platform: gpio
+#     pin: GPIO34
+#     name: "环境光"
+#     id: light_sensor
+#     filters:
+#       - threshold:
+#           threshold: 0.5
+#     on_press:
+#       - switch.turn_on: display_switch
+#     on_release:
+#       - switch.turn_off: display_switch
+
+# 状态 LED (可选)
+# output:
+#   - platform: ledc
+#     pin: GPIO2
+#     id: status_led
+# 
+# light:
+#   - platform: monochromatic
+#     output: status_led
+#     name: "状态灯"
+#     id: status_light
+#     restore_mode: ALWAYS_ON

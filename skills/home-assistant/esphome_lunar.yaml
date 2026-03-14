@@ -1,0 +1,439 @@
+# ESPHome 农历传感器配置
+
+## 方案 1: 通过 Home Assistant 模板传感器 (推荐) ⭐
+
+最简单的方式，利用已有的 `sensor.lunar_date` 实体。
+
+```yaml
+# ESPHome 配置
+esphome:
+  name: my-device
+  friendly_name: 我的设备
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+api:
+  encryption:
+    key: !secret api_key
+
+# 从 HA 获取农历数据
+sensor:
+  # 农历日期 (从 HA 模板传感器)
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    name: "农历日期"
+    id: lunar_date
+  
+  # 农历月份
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: lunar_month
+    name: "农历月份"
+    id: lunar_month
+  
+  # 农历日期 (数字)
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: lunar_day
+    name: "农历日"
+    id: lunar_day
+  
+  # 生肖
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: zodiac
+    name: "生肖"
+    id: zodiac
+  
+  # 下一个传统节日
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: next_traditional
+    name: "下一个传统节日"
+    id: next_festival
+  
+  # 节日倒计时
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: next_traditional_days
+    name: "节日倒计时"
+    id: festival_countdown
+
+# 在 OLED 显示屏上显示
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    lambda: |-
+      it.printf(0, 0, id(font), "公历: %s", id(lunar_date).state.c_str());
+      it.printf(0, 16, id(font), "农历：%s", id(lunar_date).state.c_str());
+      it.printf(0, 32, id(font), "生肖：%s", id(zodiac).state.c_str());
+      it.printf(0, 48, id(font), "距离%s: %d 天", 
+                id(next_festival).state.c_str(), 
+                (int)id(festival_countdown).state);
+
+font:
+  - file: "gfonts://Noto Sans SC"
+    id: font
+    size: 12
+```
+
+---
+
+## 方案 2: HTTP 请求直接获取 (离线方案)
+
+不依赖 HA，ESP32 直接调用农历 API。
+
+```yaml
+esphome:
+  name: lunar-display
+  friendly_name: 农历显示屏
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+api:
+
+# HTTP 请求获取农历
+sensor:
+  - platform: http_request
+    name: "农历月份"
+    id: lunar_month
+    url: "https://api.pearktrue.cn/api/lunar"
+    json_path: "$.month"
+    update_interval: 1h
+  
+  - platform: http_request
+    name: "农历日期"
+    id: lunar_day
+    url: "https://api.pearktrue.cn/api/lunar"
+    json_path: "$.day"
+    update_interval: 1h
+  
+  - platform: http_request
+    name: "农历年份"
+    id: lunar_year
+    url: "https://api.pearktrue.cn/api/lunar"
+    json_path: "$.year"
+    update_interval: 1h
+
+text_sensor:
+  - platform: http_request
+    name: "农历完整"
+    id: lunar_full
+    url: "https://api.pearktrue.cn/api/lunar"
+    json_path: "$.lmdate"
+    update_interval: 1h
+  
+  - platform: http_request
+    name: "生肖"
+    id: zodiac
+    url: "https://api.pearktrue.cn/api/lunar"
+    json_path: "$.shengxiao"
+    update_interval: 1h
+
+http_request:
+  useragent: "ESPHome Lunar Sensor"
+  timeout: 5s
+
+# 在显示屏上显示
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    lambda: |-
+      it.printf(0, 0, id(font), "农历：%s", id(lunar_full).state.c_str());
+      it.printf(0, 16, id(font), "生肖：%s", id(zodiac).state.c_str());
+
+font:
+  - file: "gfonts://Noto Sans SC"
+    id: font
+    size: 14
+```
+
+---
+
+## 方案 3: 自定义 API + 本地计算 (最佳) 🏆
+
+在 HA 中创建专用 API 端点，ESP32 调用获取完整农历数据。
+
+### 第一步：创建 HA 自动化 API
+
+```yaml
+# configuration.yaml
+rest_command:
+  get_lunar:
+    url: "http://localhost:8123/api/states/sensor.lunar_date"
+    method: "GET"
+    headers:
+      Authorization: "Bearer YOUR_LONG_LIVED_TOKEN"
+```
+
+### 第二步：ESPHome 配置
+
+```yaml
+esphome:
+  name: lunar-clock
+  friendly_name: 农历时钟
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:  # 热点备份
+    ssid: "Lunar Display"
+    password: "fallback123"
+
+captive_portal:
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  password: "ota_password"
+
+# 从 HA 获取农历数据
+sensor:
+  # 农历月份 (1-12)
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: lunar_month
+    name: "农历月"
+    id: lunar_month_num
+    on_value:
+      then:
+        - lambda: |-
+            // 月份变化时更新显示
+            id(display_component).update();
+  
+  # 农历日期 (1-30)
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: lunar_day
+    name: "农历日"
+    id: lunar_day_num
+    on_value:
+      then:
+        - lambda: |-
+            id(display_component).update();
+  
+  # 节日倒计时
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: next_traditional_days
+    name: "节日倒计时"
+    id: festival_days
+    on_value:
+      then:
+        - lambda: |-
+            id(display_component).update();
+
+text_sensor:
+  # 完整农历 (正月廿六)
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    name: "农历"
+    id: lunar_text
+    on_value:
+      then:
+        - lambda: |-
+            id(display_component).update();
+  
+  # 生肖
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: zodiac
+    name: "生肖"
+    id: zodiac_text
+    on_value:
+      then:
+        - lambda: |-
+            id(display_component).update();
+  
+  # 下一个节日
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: next_traditional
+    name: "下一个节日"
+    id: next_festival_text
+    on_value:
+      then:
+        - lambda: |-
+            id(display_component).update();
+  
+  # 公历日期
+  - platform: homeassistant
+    entity_id: sensor.lunar_date
+    attribute: gregorian_date
+    name: "公历"
+    id: gregorian_text
+    on_value:
+      then:
+        - lambda: |-
+            id(display_component).update();
+
+# I2C OLED 显示屏
+display:
+  - platform: ssd1306_i2c
+    id: display_component
+    model: "SSD1306 128x64"
+    address: 0x3C
+    lambda: |-
+      // 清屏
+      it.clear();
+      
+      // 公历
+      it.printf(0, 0, id(font_small), "公历：%s", id(gregorian_text).state.c_str());
+      
+      // 农历 (大字)
+      it.printf(0, 16, id(font_large), "%s", id(lunar_text).state.c_str());
+      
+      // 生肖
+      it.printf(0, 36, id(font_small), "生肖：%s", id(zodiac_text).state.c_str());
+      
+      // 节日倒计时
+      if (id(festival_days).state > 0) {
+        it.printf(0, 50, id(font_small), "距离%s: %d 天", 
+                  id(next_festival_text).state.c_str(), 
+                  (int)id(festival_days).state);
+      }
+
+# 字体配置 (支持中文)
+font:
+  - file: "gfonts://Noto Sans SC"
+    id: font_small
+    size: 10
+  - file: "gfonts://Noto Sans SC"
+    id: font_large
+    size: 16
+
+# 按钮 (可选 - 切换显示)
+button:
+  - platform: template
+    name: "刷新农历"
+    on_press:
+      then:
+        - homeassistant.service:
+            service: python_script.lunar_sensor
+```
+
+---
+
+## 方案 4: 本地农历库 (完全离线)
+
+使用 ESP32 本地计算农历，无需网络。
+
+```yaml
+esphome:
+  name: lunar-offline
+  includes:
+    - lunar_calc.h  # 农历计算库
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+api:
+
+# 自定义农历传感器
+sensor:
+  - platform: custom
+    lambda: |-
+      auto lunar_sensor = new LunarSensor();
+      App.register_component(lunar_sensor);
+      return {lunar_sensor};
+    
+    sensors:
+      - name: "农历月份"
+      - name: "农历日期"
+
+text_sensor:
+  - platform: custom
+    lambda: |-
+      auto lunar_text = new LunarTextSensor();
+      App.register_component(lunar_text);
+      return {lunar_text};
+    
+    text_sensors:
+      - name: "农历完整"
+
+# 需要自定义组件文件
+# lunar_calc.h 包含农历计算逻辑
+```
+
+---
+
+## 🎯 推荐方案
+
+| 方案 | 优点 | 缺点 | 推荐度 |
+|------|------|------|--------|
+| 方案 1 | 简单，数据准确 | 依赖 HA 在线 | ⭐⭐⭐⭐⭐ |
+| 方案 2 | 不依赖 HA | 依赖外部 API | ⭐⭐⭐ |
+| 方案 3 | 功能最全，可扩展 | 配置稍复杂 | ⭐⭐⭐⭐⭐ |
+| 方案 4 | 完全离线 | 开发难度大 | ⭐⭐ |
+
+---
+
+## 📦 完整示例 (方案 3 - 推荐)
+
+查看完整配置文件：`lunar_display.yaml`
+
+```bash
+# 编译并上传
+esphome compile lunar_display.yaml
+esphome upload lunar_display.yaml
+```
+
+---
+
+## 🔧 故障排除
+
+### 中文显示乱码
+```yaml
+# 确保使用支持中文的字体
+font:
+  - file: "gfonts://Noto Sans SC"  # 谷歌思源黑体
+    id: font
+    size: 14
+```
+
+### HA 实体无法访问
+```yaml
+# 检查 api 组件配置
+api:
+  encryption:
+    key: !secret api_key  # 必须与 HA 一致
+```
+
+### 农历数据不更新
+```yaml
+# 添加定时刷新
+interval:
+  - interval: 1h
+    then:
+      - homeassistant.service:
+          service: python_script.lunar_sensor
+```
