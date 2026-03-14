@@ -288,8 +288,8 @@ MIT License
 
 ## 📬 联系方式
 
-- GitHub: [@D1ts1337](https://github.com/D1ts1337)
-- 问题反馈：[Issues](https://github.com/D1ts1337/esp-smart-screen/issues)
+- GitHub: [@Jane84894](https://github.com/Jane84894)
+- 问题反馈：[Issues](https://github.com/Jane84894/esp-smart-screen/issues)
 
 ---
 

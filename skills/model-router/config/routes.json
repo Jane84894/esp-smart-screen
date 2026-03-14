@@ -1,0 +1,172 @@
+{
+  "version": "2.0.0",
+  "description": "Model Router v2.0 - Optimized with negative keywords and context awareness",
+  "defaultModel": "qwen3.5-plus",
+  
+  "routes": [
+    {
+      "name": "coding",
+      "description": "Code generation, debugging, technical tasks",
+      "model": "qwen3-coder-plus",
+      "fallback": "qwen3.5-plus",
+      "triggers": {
+        "keywords": [
+          "代码", "函数", "脚本", "编程", "debug", "write code", 
+          "function", "script", "programming", "implement", "开发", "实现",
+          "bug", "错误", "fix", "修复", "python", "javascript", "java", "c++",
+          "shell", "bash", "npm", "node", "react", "vue", "api", "sql",
+          "github", "git", "pr", "commit", "仓库", "依赖", "npm install"
+        ],
+        "patterns": [
+          "写一个.*函数",
+          "帮我.*代码",
+          ".*怎么实现",
+          ".*怎么写",
+          ".*bug",
+          ".*报错",
+          ".*爬虫",
+          ".*api.*调用",
+          ".*库.*安装"
+        ],
+        "negativeKeywords": [
+          "分析.*代码",
+          "对比.*和",
+          "优缺点"
+        ],
+        "weights": {
+          "python": 15,
+          "javascript": 15,
+          "函数": 12,
+          "代码": 12,
+          "bug": 15,
+          "debug": 15
+        }
+      },
+      "priority": "high"
+    },
+    {
+      "name": "reasoning",
+      "description": "Complex analysis, reasoning, decision making",
+      "model": "qwen3-max-2026-01-23",
+      "fallback": "qwen3.5-plus",
+      "triggers": {
+        "keywords": [
+          "分析", "推理", "为什么", "解释", "complex", "analyze",
+          "reason", "decision", "compare", "对比", "评估", "评价",
+          "优缺点", "利弊", "方案", "策略", "规划", "架构", "design",
+          "影响", "趋势", "前景", "区别", "差异", "优劣", "权衡",
+          "可行性", "风险评估", "roi", "投入产出"
+        ],
+        "patterns": [
+          "分析.*对.*的影响",
+          ".*发展趋势",
+          "比较.*和",
+          ".*和.*的区别",
+          ".*的优缺点",
+          "为什么.*会.*",
+          "如何评价.*",
+          ".*值不值得"
+        ],
+        "complexityIndicators": [
+          "比较.*和",
+          "分析.*的",
+          "为什么.*会",
+          "如何.*才能",
+          ".*是否值得"
+        ],
+        "negativeKeywords": [
+          "打开",
+          "关闭",
+          "搜索"
+        ]
+      },
+      "priority": "high"
+    },
+    {
+      "name": "longtext",
+      "description": "Long form content generation",
+      "model": "MiniMax-M2.5",
+      "fallback": "qwen3.5-plus",
+      "triggers": {
+        "keywords": [
+          "文章", "报告", "总结", "长", "write article", "report",
+          "summary", "document", "文档", "论文", "邮件", "email",
+          "博客", "blog", "故事", "story", "剧本", "script", "篇"
+        ],
+        "patterns": [
+          "写一篇.*",
+          "写个.*文章",
+          ".*发展趋势"
+        ]
+      },
+      "priority": "medium"
+    },
+    {
+      "name": "simple",
+      "description": "Simple chat, greetings, basic questions",
+      "model": "glm-4.7",
+      "fallback": "qwen3.5-plus",
+      "triggers": {
+        "keywords": [
+          "你好", "谢谢", "再见", "hi", "hello", "thanks",
+          "bye", "goodbye", "早上好", "晚上好", "晚安",
+          "在吗", "干嘛", "吃了吗", "啊", "呀", "哦"
+        ],
+        "patterns": [
+          "^你好.*",
+          "^早.*",
+          "^晚.*"
+        ],
+        "maxLength": 30
+      },
+      "priority": "high"
+    },
+    {
+      "name": "search",
+      "description": "Web search, information lookup",
+      "model": "qwen3.5-plus",
+      "fallback": "qwen3.5-plus",
+      "triggers": {
+        "keywords": [
+          "搜索", "查找", "查一下", "search", "lookup", "find",
+          "最新", "news", "今天", "现在", "current"
+        ],
+        "actions": ["web_search", "tavily_search"]
+      },
+      "priority": "medium"
+    },
+    {
+      "name": "homeassistant",
+      "description": "Smart home control",
+      "model": "qwen3.5-plus",
+      "fallback": "qwen3.5-plus",
+      "triggers": {
+        "keywords": [
+          "打开", "关闭", "开关", "灯", "空调", "温度",
+          "turn on", "turn off", "light", "climate", "home",
+          "智能家居", "ha", "home assistant"
+        ],
+        "actions": ["home_assistant"]
+      },
+      "priority": "high"
+    }
+  ],
+  
+  "costLimits": {
+    "daily": 1000,
+    "monthly": 18000,
+    "perTask": {
+      "glm-4.7": 10,
+      "qwen3.5-plus": 50,
+      "qwen3-coder-plus": 100,
+      "qwen3-max-2026-01-23": 200,
+      "MiniMax-M2.5": 150
+    }
+  },
+  
+  "cache": {
+    "enabled": true,
+    "ttl": 3600,
+    "maxSize": 1000
+  }
+}

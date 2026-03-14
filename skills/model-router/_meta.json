@@ -1,0 +1,10 @@
+{
+  "slug": "model-router",
+  "name": "Model Router",
+  "version": "1.0.0",
+  "author": "openclaw-user",
+  "description": "Automatic model selection based on task type. Saves 40-60% API costs.",
+  "tags": ["latest", "optimization", "routing", "cost-saving"],
+  "installedAt": "2026-03-09T13:00:00.000Z",
+  "source": "local"
+}

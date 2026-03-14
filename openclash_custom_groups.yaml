@@ -1,0 +1,83 @@
+# OpenClash 自定义策略组覆盖 - IPLC 香港专线优先
+# 创建时间：2026-03-08
+# 用途：自动测速选择最优香港 IPLC 专线节点
+
+proxy-groups:
+  # ⚡ 香港 IPLC 专线 - 最高优先级（5 个节点自动测速）
+  - name: "⚡ 香港 IPLC"
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 180
+    tolerance: 30
+    proxies:
+      - "🇭🇰 [IPLC·HK] 香港 801|IPLC 专线|1.5x"
+      - "🇭🇰 [IPLC·HK] 香港 802|IPLC 专线|1.5x"
+      - "🇭🇰 [IPLC·HK] 香港 803|IPLC 专线|1.5x"
+      - "🇭🇰 [IPLC·HK] 香港 804|IPLC 专线|1.5x"
+      - "🇭🇰 [IPLC·HK] 香港 805|IPLC 专线|1.5x"
+
+  # 🇭🇰 香港专线 - 第二优先级（7 个 BGP/中继节点）
+  - name: "🇭🇰 香港专线"
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 180
+    tolerance: 30
+    proxies:
+      - "🇭🇰 香港 800 专线 BGP"
+      - "🇭🇰 香港 300 中继 BGP"
+      - "🇭🇰 香港 301 中继 NF"
+      - "🇭🇰 香港 302 中继 NF"
+      - "🇭🇰 香港 303 中继 NF"
+      - "🇭🇰 香港 304 中继 NF"
+      - "🇭🇰 香港 305 中继 NF"
+
+  # ♻️ 自动选择 - 所有香港节点
+  - name: "♻️ 自动选择"
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    proxies:
+      - "⚡ 香港 IPLC"
+      - "🇭🇰 香港专线"
+
+  # 🚀 节点选择 - 主策略组
+  - name: "🚀 节点选择"
+    type: select
+    proxies:
+      - "⚡ 香港 IPLC"
+      - "🇭🇰 香港专线"
+      - "♻️ 自动选择"
+      - "🚀 手动切换"
+      - DIRECT
+
+  # 🚀 手动切换 - 包含所有节点（从原配置继承）
+  - name: "🚀 手动切换"
+    type: select
+    proxies:
+      - "🇭🇰 香港 800 专线 BGP"
+      - "🇭🇰 香港 300 中继 BGP"
+      - "🇭🇰 香港 301 中继 NF"
+      - "🇭🇰 香港 302 中继 NF"
+      - "🇭🇰 香港 303 中继 NF"
+      - "🇭🇰 香港 304 中继 NF"
+      - "🇭🇰 香港 305 中继 NF"
+      - "🇭🇰 香港 306 中继 IDC"
+      - "🇭🇰 香港 307 中继 IDC"
+      - "🇭🇰 香港 501 中继 动态"
+      - "🇭🇰 香港 503 中继 动态"
+      - "🇭🇰 [IPLC·HK] 香港 801|IPLC 专线|1.5x"
+      - "🇭🇰 [IPLC·HK] 香港 802|IPLC 专线|1.5x"
+      - "🇭🇰 [IPLC·HK] 香港 803|IPLC 专线|1.5x"
+      - "🇭🇰 [IPLC·HK] 香港 804|IPLC 专线|1.5x"
+      - "🇭🇰 [IPLC·HK] 香港 805|IPLC 专线|1.5x"
+      - "🇯🇵 [IPLC·JP] 日本 811|IPLC 专线|1.5x"
+      - "🇯🇵 [IPLC·JP] 日本 812|IPLC 专线|1.5x"
+      - "🇯🇵 [IPLC·JP] 日本 813|IPLC 专线|1.5x"
+      - "🇨🇳 [IPLC·TW] 台湾 814|IPLC 专线|1.5x"
+      - "🇺🇸 [IPLC·US] 美国 815|IPLC 专线|1.5x"
+      - "🇺🇸 [IPLC·US] 美国 816|IPLC 专线|1.5x"
+      - "🇸🇬 [IPLC·SG] 狮城 817|IPLC 专线|1.5x"
+      - "🇸🇬 [IPLC·SG] 狮城 818|IPLC 专线|1.5x"
+      - "🇰🇷 [IPLC·KR] 韩国 819|IPLC 专线|1.5x"
+      - DIRECT

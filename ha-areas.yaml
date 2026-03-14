@@ -1,0 +1,18 @@
+# HA 区域配置文件
+# 导入方法：开发者工具 → YAML → 复制粘贴 → 重启
+
+area:
+  - name: 卧室
+    id: bedroom
+  - name: 客厅
+    id: living_room
+  - name: 厨房
+    id: kitchen
+  - name: 卫生间
+    id: bathroom
+  - name: 书房
+    id: study
+  - name: 室外
+    id: outdoor
+  - name: 潮州枫溪
+    id: chaozhou_fengxi

@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "routerPath": "/home/jane/.openclaw/workspace/skills/model-router/openclaw-integration.mjs",
+  "defaultModel": "bailian/qwen3.5-plus",
+  "verbose": false,
+  "cache": {
+    "enabled": true,
+    "ttl": 3600,
+    "maxSize": 500
+  },
+  "routes": {
+    "simple": "bailian/glm-4.7",
+    "coding": "bailian/qwen3-coder-plus",
+    "reasoning": "bailian/qwen3-max-2026-01-23",
+    "longtext": "bailian/MiniMax-M2.5",
+    "search": "bailian/qwen3.5-plus",
+    "homeassistant": "bailian/qwen3.5-plus"
+  }
+}

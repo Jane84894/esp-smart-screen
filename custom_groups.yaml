@@ -1,0 +1,47 @@
+# OpenClash 自定义策略组覆盖 - 香港 IPLC 专线优先
+# 使用方法：在 OpenClash → 配置文件管理 → 配置文件覆盖 中选择此文件
+
+proxy-groups:
+  - name: "⚡ 香港 IPLC"
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 180
+    tolerance: 30
+    proxies:
+      - "🇭🇰 [IPLC·HK] 香港 801|IPLC 专线|1.5x"
+      - "🇭🇰 [IPLC·HK] 香港 802|IPLC 专线|1.5x"
+      - "🇭🇰 [IPLC·HK] 香港 803|IPLC 专线|1.5x"
+      - "🇭🇰 [IPLC·HK] 香港 804|IPLC 专线|1.5x"
+      - "🇭🇰 [IPLC·HK] 香港 805|IPLC 专线|1.5x"
+
+  - name: "🇭🇰 香港专线"
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 180
+    tolerance: 30
+    proxies:
+      - "🇭🇰 香港 800 专线 BGP"
+      - "🇭🇰 香港 300 中继 BGP"
+      - "🇭🇰 香港 301 中继 NF"
+      - "🇭🇰 香港 302 中继 NF"
+      - "🇭🇰 香港 303 中继 NF"
+      - "🇭🇰 香港 304 中继 NF"
+      - "🇭🇰 香港 305 中继 NF"
+
+  - name: "♻️ 自动选择"
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    proxies:
+      - "⚡ 香港 IPLC"
+      - "🇭🇰 香港专线"
+
+  - name: "🚀 节点选择"
+    type: select
+    proxies:
+      - "⚡ 香港 IPLC"
+      - "🇭🇰 香港专线"
+      - "♻️ 自动选择"
+      - "🚀 手动切换"
+      - DIRECT

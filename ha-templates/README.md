@@ -168,6 +168,6 @@ python3 /config/python_scripts/lunar_sensor.py
 
 ---
 
-**作者**: D1ts1337
+**作者**: [@Jane84894](https://github.com/Jane84894)
 **版本**: 1.0
 **许可证**: MIT

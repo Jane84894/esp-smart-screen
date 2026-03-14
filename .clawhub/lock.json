@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "skills": {
+    "tavily-search": {
+      "version": "1.0.0",
+      "installedAt": 1773057689461
+    },
+    "proactive-agent": {
+      "version": "3.1.0",
+      "installedAt": 1773057889715
+    },
+    "humanizer": {
+      "version": "1.0.0",
+      "installedAt": 1773057922269
+    },
+    "home-assistant": {
+      "version": "1.0.0",
+      "installedAt": 1773058178801
+    },
+    "notion": {
+      "version": "1.0.0",
+      "installedAt": 1773068466873
+    },
+    "weather": {
+      "version": "1.0.0",
+      "installedAt": 1773068515458
+    },
+    "security-audit": {
+      "version": "1.0.0",
+      "installedAt": 1773068522534
+    },
+    "youtube": {
+      "version": "1.0.1",
+      "installedAt": 1773068557774
+    },
+    "speedtest": {
+      "version": "1.0.1",
+      "installedAt": 1773068573029
+    },
+    "uptime-kuma": {
+      "version": "1.0.0",
+      "installedAt": 1773068575825
+    },
+    "vault": {
+      "version": "1.1.2",
+      "installedAt": 1773068581833
+    },
+    "grafana": {
+      "version": "1.0.0",
+      "installedAt": 1773068617108
+    },
+    "prometheus": {
+      "version": "1.1.0",
+      "installedAt": 1773068620480
+    },
+    "self-improving": {
+      "version": "1.2.10",
+      "installedAt": 1773077434287
+    }
+  }
+}
