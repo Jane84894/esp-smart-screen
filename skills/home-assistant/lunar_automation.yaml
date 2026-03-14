@@ -1,0 +1,106 @@
+# 农历传感器 + 节日倒计时自动化
+# 使用方法：将此文件内容添加到 HA 的 configuration.yaml 或 automations.yaml
+
+automation:
+  # 每天午夜更新农历
+  - alias: "🌙 每日更新农历"
+    description: "每天 00:00 自动更新农历日期和节日倒计时"
+    trigger:
+      - platform: time
+        hours: 0
+        minutes: 0
+        seconds: 0
+    action:
+      - service: shell_command.update_lunar
+      - service: notify.persistent_notification
+        data:
+          title: "农历更新"
+          message: "今天是 {{ states('sensor.lunar_date') }} | 下一个节日：{{ state_attr('sensor.lunar_date', 'next_traditional') }} ({{ state_attr('sensor.lunar_date', 'next_traditional_days') }}天)"
+
+  # 节日倒计时提醒 (提前 7 天)
+  - alias: "🏮 传统节日提醒"
+    description: "传统节日前 7 天发送提醒"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.lunar_date
+        attribute: next_traditional_days
+        below: 8
+        above: 0
+    action:
+      - service: notify.persistent_notification
+        data:
+          title: "🏮 节日提醒"
+          message: "距离{{ state_attr('sensor.lunar_date', 'next_traditional') }}还有{{ state_attr('sensor.lunar_date', 'next_traditional_days') }}天！"
+
+shell_command:
+  update_lunar: "python3 /home/jane/.openclaw/workspace/skills/home-assistant/lunar_sensor.py"
+
+# Lovelace 仪表板卡片配置
+# 复制到你的仪表板 YAML 中
+lovelace_cards:
+  lunar_sensor: |
+    type: entities
+    title: 🌙 农历
+    entities:
+      - entity: sensor.lunar_date
+        name: 农历日期
+      - entity: sensor.lunar_date
+        name: 公历
+        attribute: gregorian_date
+      - entity: sensor.lunar_date
+        name: 干支
+        attribute: gz_year
+      - entity: sensor.lunar_date
+        name: 生肖
+        attribute: zodiac
+      - type: divider
+      - entity: sensor.lunar_date
+        name: 🏮 下一个传统节日
+        attribute: next_traditional
+      - entity: sensor.lunar_date
+        name: 倒计时
+        attribute: next_traditional_days
+        suffix: 天
+      - entity: sensor.lunar_date
+        name: 日期
+        attribute: next_traditional_date
+      - type: divider
+      - entity: sensor.lunar_date
+        name: 🎉 下一个法定节假日
+        attribute: next_public
+      - entity: sensor.lunar_date
+        name: 倒计时
+        attribute: next_public_days
+        suffix: 天
+
+  # 更美观的卡片 (需要 custom:button-card)
+  lunar_card_fancy: |
+    type: custom:button-card
+    entity: sensor.lunar_date
+    name: 农历
+    show_state: true
+    show_label: true
+    show_name: true
+    state:
+      - value: "正月"
+        styles:
+          card:
+            - background-color: "#ff6b6b"
+          label:
+            - color: "#fff"
+      - value: "二月"
+        styles:
+          card:
+            - background-color: "#4ecdc4"
+    tap_action:
+      action: more-info
+    hold_action:
+      action: navigate
+      navigation_path: /lovelace/calendar
+    custom_fields:
+      gregorian: >
+        [[[ return states['sensor.lunar_date'].attributes.gregorian_date; ]]]
+      zodiac: >
+        [[[ return '🐴 ' + states['sensor.lunar_date'].attributes.zodiac; ]]]
+      next_festival: >
+        [[[ return '🏮 ' + states['sensor.lunar_date'].attributes.next_traditional + ' (' + states['sensor.lunar_date'].attributes.next_traditional_days + '天)'; ]]]
