@@ -1,0 +1,84 @@
+# Git 忽略文件 - 保护敏感信息
+
+# 敏感信息
+secrets.yaml
+*.secret
+*.key
+*.token
+*.env
+*.pem
+*.crt
+
+# 密码和凭证
+password*
+credential*
+apikey*
+api_key*
+
+# 敏感配置文件
+TOOLS.md
+
+# 临时文件
+*.log
+*.tmp
+*.bak
+*~
+*.swp
+*.swo
+
+# 自动生成
+.clawhub/
+.openclaw/
+__pycache__/
+*.pyc
+*.pyo
+.node-gyp/
+
+# 临时文档
+*-report.md
+*-updated.md
+github-*.md
+temp-*.md
+test-*.md
+
+# 临时配置
+temp-*.yaml
+test-*.yaml
+*-backup.yaml
+*-backup.json
+
+# 编译产物
+build/
+dist/
+*.o
+*.so
+*.a
+
+# 压缩包
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# 编辑器
+.vscode/
+.idea/
+*.sublime-*
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 日志
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

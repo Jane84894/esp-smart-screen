@@ -42,7 +42,7 @@
 | 110 | openclaw | - | VM | 我自己 (爪爪🦞) |
 | 200 | Monitor-Grafana | 192.168.2.12 | LXC | Grafana+InfluxDB 监控 |
 
-### OpenClaw VM (192.168.2.110) 已安装工具
+### OpenClaw VM (192.168.2.20) 已安装工具
 
 #### 🔧 开发工具
 git, curl, wget, vim, nano, build-essential, gcc, g++, make, tree, jq
